@@ -33,7 +33,7 @@ def test_rejects_an_unsupported_content_type(
 ) -> None:
     response = client.post(ENDPOINT, files={"image": ("notes.txt", b"plain text", "text/plain")})
 
-    assert response.status_code == 422
+    assert response.status_code == 415
     assert "text/plain" in response.json()["detail"]
     assert caption_generator.calls == []
 
@@ -58,7 +58,7 @@ def test_rejects_an_upload_over_the_size_limit(
 
     response = client.post(ENDPOINT, files={"image": ("big.jpg", oversized, "image/jpeg")})
 
-    assert response.status_code == 422
+    assert response.status_code == 413
     assert "larger than 10 MB" in response.json()["detail"]
     assert caption_generator.calls == []
 
@@ -67,15 +67,21 @@ def test_rejects_a_file_that_lies_about_its_content_type(
     client: TestClient,
     caption_generator: RecordingCaptionGenerator,
 ) -> None:
-    """A declared type is not proof, so the bytes are checked as well."""
+    """A declared type is not proof, so the bytes are checked as well.
+
+    Rejected as 415 like any other unsupported format: what the client called
+    the upload does not change what it actually is.
+    """
     response = client.post(ENDPOINT, files={"image": ("dish.jpg", b"not an image", "image/jpeg")})
 
-    assert response.status_code == 422
+    assert response.status_code == 415
     assert "not a readable image" in response.json()["detail"]
     assert caption_generator.calls == []
 
 
 def test_rejects_a_request_without_a_file(client: TestClient) -> None:
+    """The only 422 the endpoint returns: nothing is wrong with the media type,
+    the field is simply absent."""
     response = client.post(ENDPOINT)
 
     assert response.status_code == 422
@@ -110,3 +116,14 @@ def test_reports_an_unusable_provider_response_as_bad_gateway(
 
     assert response.status_code == 502
     assert "unexpected response" in response.json()["detail"]
+
+
+def test_documents_every_status_code_it_can_return(client: TestClient) -> None:
+    """A client generating types from the spec would otherwise never learn that
+    413 and 415 exist, and would treat them as unexpected."""
+    responses = client.get("/openapi.json").json()["paths"][ENDPOINT]["post"]["responses"]
+
+    assert sorted(responses) == ["200", "413", "415", "422", "502", "503"]
+    for code in ("413", "415", "422", "502", "503"):
+        schema = responses[code]["content"]["application/json"]["schema"]
+        assert schema["$ref"].endswith("/ErrorResponse"), code

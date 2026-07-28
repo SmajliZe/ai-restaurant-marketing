@@ -21,9 +21,20 @@ router = APIRouter(prefix="/content", tags=["content"])
 _READ_CHUNK_BYTES: Final = 64 * 1024
 
 _ERROR_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_413_CONTENT_TOO_LARGE: {
+        "model": ErrorResponse,
+        "description": "The image is larger than the 10 MB limit.",
+    },
+    status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: {
+        "model": ErrorResponse,
+        "description": (
+            "The upload is not JPEG, PNG or WebP, either by its declared content "
+            "type or by its actual bytes."
+        ),
+    },
     status.HTTP_422_UNPROCESSABLE_CONTENT: {
         "model": ErrorResponse,
-        "description": "The upload is missing, too large, or not a supported image.",
+        "description": "The request is missing the image field.",
     },
     status.HTTP_502_BAD_GATEWAY: {
         "model": ErrorResponse,

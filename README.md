@@ -63,8 +63,15 @@ curl -X POST http://localhost:8000/content/generate-caption \
 ```
 
 JPEG, PNG and WebP are accepted, up to 10 MB. Every failure returns the same
-`{"detail": "..."}` body: 422 when the upload is rejected, 503 when Gemini is rate limiting us
-or the key is missing, 502 when Gemini answers with something unusable.
+`{"detail": "..."}` body:
+
+| Status | Meaning                                                                          |
+| ------ | -------------------------------------------------------------------------------- |
+| 413    | The image is over 10 MB.                                                         |
+| 415    | Not a supported image, by declared content type or by actual bytes.              |
+| 422    | The `image` field is missing from the request.                                   |
+| 502    | Gemini answered with something unusable.                                         |
+| 503    | Gemini is rate limiting us, or `GEMINI_API_KEY` is not set. Sends `Retry-After`. |
 
 ## Running without Docker
 

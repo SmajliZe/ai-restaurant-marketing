@@ -13,7 +13,12 @@ class ContentGenerationError(Exception):
 
 
 class InvalidImageError(ContentGenerationError):
-    """The upload is not an image we can send to the model."""
+    """The upload is not an image we can send to the model.
+
+    Covers both a content type we do not accept and bytes that turn out not to
+    be a readable image in a supported format, because the caller can do
+    nothing different about either.
+    """
 
 
 class ImageTooLargeError(ContentGenerationError):

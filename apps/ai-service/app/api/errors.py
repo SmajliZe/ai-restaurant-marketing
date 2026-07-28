@@ -29,8 +29,8 @@ def install_exception_handlers(app: FastAPI) -> None:
     """Starlette resolves handlers along the exception's MRO, so registering
     ``AIServiceError`` last makes it the fallback for its own subclasses."""
     app.add_exception_handler(RequestValidationError, _handle_request_validation)
-    app.add_exception_handler(InvalidImageError, _handle_unprocessable)
-    app.add_exception_handler(ImageTooLargeError, _handle_unprocessable)
+    app.add_exception_handler(InvalidImageError, _handle_unsupported_media_type)
+    app.add_exception_handler(ImageTooLargeError, _handle_content_too_large)
     app.add_exception_handler(AIServiceBusyError, _handle_busy)
     app.add_exception_handler(AIServiceConfigurationError, _handle_unavailable)
     app.add_exception_handler(AIServiceError, _handle_bad_gateway)
@@ -46,8 +46,12 @@ def _error_response(
 
 
 async def _handle_request_validation(_: Request, exc: Exception) -> JSONResponse:
-    """Collapse FastAPI's list-shaped body into the same object as every other
-    failure, so a client never has to parse two shapes for one status code."""
+    """The one case where 422 is the right answer: the request is well-formed
+    and its media type is fine, but a field is missing or malformed.
+
+    The list-shaped body FastAPI produces is collapsed into the same object as
+    every other failure, so a client never has to parse two shapes.
+    """
     detail = _summarise(exc) if isinstance(exc, RequestValidationError) else str(exc)
     body = ErrorResponse(detail=detail)
     return JSONResponse(
@@ -65,8 +69,14 @@ def _summarise(exc: RequestValidationError) -> str:
     return "; ".join(problems) or "The request could not be validated."
 
 
-async def _handle_unprocessable(_: Request, exc: Exception) -> JSONResponse:
-    return _error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, exc)
+async def _handle_unsupported_media_type(_: Request, exc: Exception) -> JSONResponse:
+    """The upload is not a format we can send to the model - either it declared
+    an unsupported content type, or its bytes turned out not to be one."""
+    return _error_response(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, exc)
+
+
+async def _handle_content_too_large(_: Request, exc: Exception) -> JSONResponse:
+    return _error_response(status.HTTP_413_CONTENT_TOO_LARGE, exc)
 
 
 async def _handle_busy(_: Request, exc: Exception) -> JSONResponse:
