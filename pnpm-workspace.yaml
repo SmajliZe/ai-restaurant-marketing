@@ -1,0 +1,18 @@
+# Single source of truth for workspace membership. pnpm does not read the
+# `workspaces` field from package.json, so it is intentionally absent there.
+packages:
+  - apps/*
+  - packages/*
+
+# Versions shared by more than one workspace package are pinned once here and
+# referenced as "catalog:", so they cannot drift apart.
+catalog:
+  typescript: 5.9.3
+
+# pnpm 10 blocks lifecycle scripts unless a dependency is listed here.
+# Both entries are native binaries that genuinely need their install step:
+# sharp powers next/image optimisation, unrs-resolver backs the ESLint
+# import resolver.
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver

@@ -1,0 +1,84 @@
+name: ai-restaurant-marketing
+
+# Local development stack. Values come from the repository-root .env
+# (see .env.example); nothing here carries a baked-in secret.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  ai-service:
+    build:
+      context: ./apps/ai-service
+      target: dev
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CORS_ALLOW_ORIGINS: http://localhost:${WEB_PORT:-3000}
+    ports:
+      - '${AI_SERVICE_PORT:-8000}:8000'
+    volumes:
+      # Source only: the virtualenv in the image must not be shadowed.
+      - ./apps/ai-service/app:/app/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health').read()",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: dev
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_APP_URL: http://localhost:${WEB_PORT:-3000}
+      AI_SERVICE_URL: http://ai-service:8000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      WATCHPACK_POLLING: 'true'
+    ports:
+      - '${WEB_PORT:-3000}:3000'
+    volumes:
+      - ./apps/web:/repo/apps/web
+      - ./packages:/repo/packages
+      # Anonymous volumes keep the container's installed dependencies and build
+      # cache from being hidden by the bind mounts above.
+      - /repo/node_modules
+      - /repo/apps/web/node_modules
+      - /repo/apps/web/.next
+      - /repo/packages/shared-types/node_modules
+    depends_on:
+      ai-service:
+        condition: service_started
+
+volumes:
+  postgres-data:

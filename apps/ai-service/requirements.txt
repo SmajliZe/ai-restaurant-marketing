@@ -1,0 +1,7 @@
+# Runtime dependencies. This file is the source of truth for what ships in the
+# container image; pyproject.toml only configures tooling.
+fastapi==0.140.7
+uvicorn[standard]==0.51.0
+python-dotenv==1.2.2
+openai==2.49.0
+pydantic==2.13.4

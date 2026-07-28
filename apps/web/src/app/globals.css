@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+/* Tailwind v4 is configured in CSS; design tokens declared here become
+   utilities (e.g. bg-surface) and CSS variables at the same time. */
+@theme {
+  --color-surface: #0b0f14;
+  --color-surface-muted: #141b23;
+  --color-accent: #ff6b35;
+}
+
+:root {
+  color-scheme: dark;
+}
