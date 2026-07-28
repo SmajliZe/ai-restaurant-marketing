@@ -1,0 +1,48 @@
+# --- Secrets -----------------------------------------------------------------
+# Every real .env stays local; only the *.example templates are versioned.
+.env
+.env.*
+!.env.example
+
+# --- Node / JavaScript ---------------------------------------------------------
+node_modules/
+.pnpm-store/
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# --- Next.js --------------------------------------------------------------------
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# --- Build output ---------------------------------------------------------------
+dist/
+build/
+coverage/
+
+# --- Python ---------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# --- Tooling caches / editors ----------------------------------------------------
+.cache/
+.turbo/
+.eslintcache
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- OS ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db

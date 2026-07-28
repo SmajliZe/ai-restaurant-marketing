@@ -1,0 +1,13 @@
+# Context for the web image is the repository root (pnpm workspace links).
+**/node_modules
+**/.next
+**/__pycache__
+**/.venv
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.github
+**/dist
+**/coverage
+**/*.log

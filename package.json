@@ -1,0 +1,23 @@
+{
+  "name": "ai-restaurant-marketing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AI Restaurant Marketing SaaS platform monorepo",
+  "packageManager": "pnpm@10.33.3",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev": "pnpm --recursive --parallel --stream dev",
+    "build": "pnpm --recursive --stream build",
+    "lint": "pnpm --recursive --stream lint",
+    "typecheck": "pnpm --recursive --stream typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "3.9.6",
+    "typescript": "catalog:"
+  }
+}

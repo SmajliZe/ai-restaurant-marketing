@@ -1,0 +1,37 @@
+# Tooling configuration only. Dependencies live in requirements*.txt so there is
+# exactly one place to look when auditing what the image installs.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["."]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle
+  "F",   # pyflakes
+  "I",   # import sorting
+  "B",   # bugbear
+  "UP",  # pyupgrade
+  "SIM", # simplifications
+  "TID", # tidy imports
+  "RUF",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Relative imports hide layering violations; absolute ones make them reviewable.
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app"]
+strict = true
+plugins = ["pydantic.mypy"]
+warn_unreachable = true
+show_error_codes = true
