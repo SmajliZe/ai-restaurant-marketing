@@ -28,10 +28,10 @@ class Settings(BaseModel):
     environment: str = "development"
     log_level: str = "INFO"
 
-    # Unset in the scaffold: the service must still start without them so the
-    # container can boot before any integration exists.
+    # Optional on purpose: the service must still start without them so the
+    # container boots for health checks even when an integration is unconfigured.
     database_url: str | None = None
-    openai_api_key: str | None = None
+    gemini_api_key: str | None = None
 
     cors_allow_origins: tuple[str, ...] = ()
 
@@ -52,7 +52,7 @@ _ENV_VAR_BY_FIELD: Final[dict[str, str]] = {
     "environment": "APP_ENV",
     "log_level": "LOG_LEVEL",
     "database_url": "DATABASE_URL",
-    "openai_api_key": "OPENAI_API_KEY",
+    "gemini_api_key": "GEMINI_API_KEY",
     "cors_allow_origins": "CORS_ALLOW_ORIGINS",
 }
 

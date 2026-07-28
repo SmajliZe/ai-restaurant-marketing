@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.errors import install_exception_handlers
 from app.api.router import api_router
 from app.infrastructure.config import Settings, get_settings
 
@@ -33,6 +34,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             allow_headers=["*"],
         )
 
+    install_exception_handlers(app)
     app.include_router(api_router)
     return app
 
