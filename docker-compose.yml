@@ -36,8 +36,10 @@ services:
     ports:
       - '${AI_SERVICE_PORT:-8000}:8000'
     volumes:
-      # Source only: the virtualenv in the image must not be shadowed.
+      # Source and tests only. Mounting the whole directory would shadow the
+      # image's virtualenv with whatever the host happens to have.
       - ./apps/ai-service/app:/app/app
+      - ./apps/ai-service/tests:/app/tests
     depends_on:
       postgres:
         condition: service_healthy

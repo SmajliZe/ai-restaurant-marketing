@@ -31,14 +31,16 @@ from app.infrastructure.config import get_settings
 MODEL_NAME: Final = "gemini-3.6-flash"
 
 
+# The JSON shape Gemini is constrained to return.
+#
+# Deliberately not CaptionResponse: this is the contract with the model provider,
+# that one is the contract with our clients, and adding a field to our API should
+# never change what we ask the model for.
+#
+# Documented in comments rather than a docstring on purpose - Pydantic copies a
+# docstring into the JSON schema's "description", which would ship these notes to
+# the model in every request.
 class _GeminiCaption(BaseModel):
-    """The JSON shape Gemini is constrained to return.
-
-    Deliberately not ``CaptionResponse``: this is the contract with the model
-    provider, that one is the contract with our clients, and adding a field to
-    our API should never change what we ask the model for.
-    """
-
     recognized_dish: str
     caption: str
     hashtags: list[str]
