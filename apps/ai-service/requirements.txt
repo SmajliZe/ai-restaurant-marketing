@@ -3,5 +3,13 @@
 fastapi==0.140.7
 uvicorn[standard]==0.51.0
 python-dotenv==1.2.2
-openai==2.49.0
 pydantic==2.13.4
+
+# Google Gen AI SDK - the Gemini client used for dish recognition and captions.
+google-genai==2.14.0
+
+# Decodes uploaded images for validation only; we never transform or store them.
+pillow==12.3.0
+
+# Required by FastAPI to accept multipart/form-data uploads.
+python-multipart==0.0.32

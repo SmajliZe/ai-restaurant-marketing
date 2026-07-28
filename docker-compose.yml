@@ -31,13 +31,15 @@ services:
       APP_ENV: development
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       CORS_ALLOW_ORIGINS: http://localhost:${WEB_PORT:-3000}
     ports:
       - '${AI_SERVICE_PORT:-8000}:8000'
     volumes:
-      # Source only: the virtualenv in the image must not be shadowed.
+      # Source and tests only. Mounting the whole directory would shadow the
+      # image's virtualenv with whatever the host happens to have.
       - ./apps/ai-service/app:/app/app
+      - ./apps/ai-service/tests:/app/tests
     depends_on:
       postgres:
         condition: service_healthy
