@@ -21,9 +21,16 @@ export function GeneratedContentResult({
   return (
     <section className="flex flex-col gap-8" aria-label="Generated content">
       <div className="grid gap-4 sm:grid-cols-2">
-        <ImagePanel title="Original" src={originalUrl} />
+        {/* The original is letterboxed rather than cropped to fit, so the
+            change in framing is visible next to the enhanced version. */}
+        <ImagePanel title="Original" src={originalUrl} note="As uploaded" fit="contain" />
         {enhancement.ok ? (
-          <ImagePanel title="Enhanced" src={enhancement.enhancedImageUrl} />
+          <ImagePanel
+            title="Enhanced"
+            src={enhancement.enhancedImageUrl}
+            note="Cropped to 4:5 for the feed"
+            fit="cover"
+          />
         ) : (
           <Placeholder title="Enhanced" message={enhancement.message} />
         )}
@@ -120,7 +127,17 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-function ImagePanel({ title, src }: { title: string; src: string }) {
+function ImagePanel({
+  title,
+  src,
+  note,
+  fit,
+}: {
+  title: string;
+  src: string;
+  note: string;
+  fit: 'cover' | 'contain';
+}) {
   return (
     <figure className="flex flex-col gap-2">
       <PanelHeading>{title}</PanelHeading>
@@ -128,8 +145,13 @@ function ImagePanel({ title, src }: { title: string; src: string }) {
         {/* eslint-disable-next-line @next/next/no-img-element --
             next/image rejects blob: URLs, and the enhanced file is a one-off
             that the optimiser would only copy. */}
-        <img src={src} alt={`${title} photo of the dish`} className="h-full w-full object-cover" />
+        <img
+          src={src}
+          alt={`${title} photo of the dish`}
+          className={`h-full w-full ${fit === 'cover' ? 'object-cover' : 'object-contain'}`}
+        />
       </div>
+      <figcaption className="text-xs text-slate-500">{note}</figcaption>
     </figure>
   );
 }
