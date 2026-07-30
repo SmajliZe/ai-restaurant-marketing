@@ -13,6 +13,7 @@
     "build": "pnpm --recursive --stream build",
     "lint": "pnpm --recursive --stream lint",
     "typecheck": "pnpm --recursive --stream typecheck",
+    "test": "pnpm --recursive --stream test",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

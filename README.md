@@ -3,9 +3,9 @@
 Monorepo for the AI Restaurant Marketing SaaS platform: a Next.js web application, a Python
 AI service, and the TypeScript packages they share.
 
-The first feature is in place: upload a photo of a dish and the AI service identifies it and
-drafts an Instagram caption with hashtags. There is still no database schema, no authentication
-and no web UI for it — the endpoint is consumed directly for now.
+The first feature is in place end to end: upload a photo of a dish at `/generate` and the app
+returns an Instagram caption with hashtags alongside an enhanced, feed-ready 4:5 crop. There is
+still no database schema and no authentication.
 
 ## Stack
 
@@ -48,6 +48,13 @@ the host reload inside the container. Postgres data survives restarts in the `po
 named volume; `docker compose down -v` is what wipes it.
 
 ## Generating a caption
+
+Through the UI, open [localhost:3000/generate](http://localhost:3000/generate) and pick a photo.
+The web app does two things at once: it asks the AI service for a caption, and it crops and
+enhances the photo locally with sharp. The two are independent, so if the AI call fails you still
+get the enhanced image, and vice versa — the page says which half did not work.
+
+Against the AI service directly:
 
 ```bash
 curl -X POST http://localhost:8000/content/generate-caption \
@@ -96,7 +103,8 @@ apps/
   web/                     Next.js application
     src/app/               App Router routes, layouts, route handlers
     src/modules/           Feature modules - the bulk of product code lands here
-    src/components/        Cross-feature presentational components
+      content-generation/  Server Action, sharp pipeline, upload rules, types
+    src/components/        Presentational components, grouped by feature
     src/lib/               Framework-agnostic helpers and clients
     src/types/             App-local types (shared ones go in packages/shared-types)
   ai-service/              FastAPI service
@@ -144,6 +152,7 @@ Run from the repository root:
 | `pnpm build`     | Production build of every workspace app |
 | `pnpm lint`      | ESLint, warnings treated as failures    |
 | `pnpm typecheck` | `tsc --noEmit` across the workspace     |
+| `pnpm test`      | Vitest across the workspace             |
 | `pnpm format`    | Prettier write across the repository    |
 
 In `apps/ai-service` (with the virtualenv active):
@@ -169,5 +178,6 @@ In `apps/ai-service` (with the virtualenv active):
 
 ## Next steps
 
-Deliberately deferred: database schema and migrations, authentication, persisting generated
-captions, and the web UI that will call `/content/generate-caption`.
+Deliberately deferred: database schema and migrations, authentication, and persisting generated
+captions. Enhanced images are currently written to the OS temp directory and served by a route
+handler, which works for one instance and nothing more — real object storage replaces it next.
