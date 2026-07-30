@@ -8,7 +8,7 @@ export default function HomePage() {
       </p>
       <h1 className="text-4xl font-semibold text-balance">Photos of your food, ready to post</h1>
       <p className="text-slate-400">
-        Upload a dish and get back an Instagram caption, hashtags, and a feed-ready crop.
+        Upload a dish and get back an Instagram caption, hashtags, and a polished photo.
       </p>
       <Link
         href="/generate"
