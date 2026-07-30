@@ -1,3 +1,5 @@
+'use client';
+
 import { useId } from 'react';
 
 const CONTROL_CLASS =
@@ -67,6 +69,16 @@ export function TextAreaField({
   );
 }
 
+/**
+ * Uncontrolled, like the fields above, and it has to stay that way.
+ *
+ * React resets a form after its action finishes, and `reset()` puts a select
+ * back to whichever option carries the `selected` attribute. A controlled
+ * select has no such attribute, so the reset would snap it to the first option
+ * regardless of what the user chose. `defaultValue` is what puts `selected` in
+ * the right place; the form remounts after a save so it points at the value
+ * that was actually stored.
+ */
 export function SelectField({
   label,
   name,

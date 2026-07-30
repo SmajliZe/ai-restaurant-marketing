@@ -11,6 +11,44 @@ export function ProfileForm({ profile }: { profile: RestaurantProfile | null }) 
   const [state, formAction, isPending] = useActionState(upsertProfileAction, { status: 'idle' });
 
   return (
+    <div className="flex flex-col gap-4">
+      {/* Remounted whenever a save lands, so every field re-reads its default
+          from what was actually stored. React resets a form once its action
+          finishes, and without a remount the reset restores the defaults from
+          the first render - which, on a profile created in this session, means
+          the values from before it existed. */}
+      <ProfileFields
+        key={profile?.updatedAt.toISOString() ?? 'new'}
+        profile={profile}
+        formAction={formAction}
+        isPending={isPending}
+      />
+
+      {/* Outside the remounted subtree so the confirmation survives it. */}
+      {state.status === 'saved' && (
+        <p role="status" className="text-sm text-emerald-300">
+          Profile saved.
+        </p>
+      )}
+      {state.status === 'error' && (
+        <p role="alert" className="text-sm text-rose-400">
+          {state.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ProfileFields({
+  profile,
+  formAction,
+  isPending,
+}: {
+  profile: RestaurantProfile | null;
+  formAction: (formData: FormData) => void;
+  isPending: boolean;
+}) {
+  return (
     <form action={formAction} className="flex flex-col gap-10">
       <Section
         title="The basics"
@@ -130,26 +168,13 @@ export function ProfileForm({ profile }: { profile: RestaurantProfile | null }) 
         </div>
       </Section>
 
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="bg-accent w-fit rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
-        >
-          {isPending ? 'Saving…' : 'Save profile'}
-        </button>
-
-        {state.status === 'saved' && (
-          <p role="status" className="text-sm text-emerald-300">
-            Profile saved.
-          </p>
-        )}
-        {state.status === 'error' && (
-          <p role="alert" className="text-sm text-rose-400">
-            {state.message}
-          </p>
-        )}
-      </div>
+      <button
+        type="submit"
+        disabled={isPending}
+        className="bg-accent w-fit rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
+      >
+        {isPending ? 'Saving…' : 'Save profile'}
+      </button>
     </form>
   );
 }
