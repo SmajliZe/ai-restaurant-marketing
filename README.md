@@ -4,8 +4,8 @@ Monorepo for the AI Restaurant Marketing SaaS platform: a Next.js web applicatio
 AI service, and the TypeScript packages they share.
 
 The first feature is in place end to end: upload a photo of a dish at `/generate` and the app
-returns an Instagram caption with hashtags alongside an enhanced, feed-ready 4:5 crop. There is
-still no database schema and no authentication.
+returns an Instagram caption with hashtags alongside a colour-corrected version of the photo.
+There is still no database schema and no authentication.
 
 ## Stack
 
@@ -50,9 +50,11 @@ named volume; `docker compose down -v` is what wipes it.
 ## Generating a caption
 
 Through the UI, open [localhost:3000/generate](http://localhost:3000/generate) and pick a photo.
-The web app does two things at once: it asks the AI service for a caption, and it crops and
-enhances the photo locally with sharp. The two are independent, so if the AI call fails you still
-get the enhanced image, and vice versa — the page says which half did not work.
+The web app does two things at once: it asks the AI service for a caption, and it enhances the
+photo locally with sharp — auto-orienting it from EXIF, stretching its tonal range, and lifting
+saturation, contrast and sharpness, all at the photo's original dimensions. The two are
+independent, so if the AI call fails you still get the enhanced image, and vice versa — the page
+says which half did not work.
 
 Against the AI service directly:
 

@@ -20,16 +20,15 @@ export function GeneratedContentResult({
 
   return (
     <section className="flex flex-col gap-8" aria-label="Generated content">
+      {/* Both images have the same dimensions, so they line up side by side
+          without either being scaled or cropped to match the other. */}
       <div className="grid gap-4 sm:grid-cols-2">
-        {/* The original is letterboxed rather than cropped to fit, so the
-            change in framing is visible next to the enhanced version. */}
-        <ImagePanel title="Original" src={originalUrl} note="As uploaded" fit="contain" />
+        <ImagePanel title="Original" src={originalUrl} note="As uploaded" />
         {enhancement.ok ? (
           <ImagePanel
             title="Enhanced"
             src={enhancement.enhancedImageUrl}
-            note="Cropped to 4:5 for the feed"
-            fit="cover"
+            note="Same framing, colour and sharpness corrected"
           />
         ) : (
           <Placeholder title="Enhanced" message={enhancement.message} />
@@ -127,29 +126,15 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-function ImagePanel({
-  title,
-  src,
-  note,
-  fit,
-}: {
-  title: string;
-  src: string;
-  note: string;
-  fit: 'cover' | 'contain';
-}) {
+function ImagePanel({ title, src, note }: { title: string; src: string; note: string }) {
   return (
     <figure className="flex flex-col gap-2">
       <PanelHeading>{title}</PanelHeading>
-      <div className="bg-surface-muted aspect-4/5 overflow-hidden rounded-lg">
+      <div className="bg-surface-muted overflow-hidden rounded-lg">
         {/* eslint-disable-next-line @next/next/no-img-element --
             next/image rejects blob: URLs, and the enhanced file is a one-off
             that the optimiser would only copy. */}
-        <img
-          src={src}
-          alt={`${title} photo of the dish`}
-          className={`h-full w-full ${fit === 'cover' ? 'object-cover' : 'object-contain'}`}
-        />
+        <img src={src} alt={`${title} photo of the dish`} className="w-full" />
       </div>
       <figcaption className="text-xs text-slate-500">{note}</figcaption>
     </figure>
