@@ -9,14 +9,21 @@
     "start": "next start",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@restaurant-ai/shared-types": "workspace:*",
     "next": "16.2.12",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "sharp": "0.34.5"
+    "sharp": "0.34.5",
+    "drizzle-orm": "0.45.2",
+    "postgres": "3.4.9",
+    "next-auth": "5.0.0-beta.32",
+    "bcrypt": "6.0.0",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
@@ -27,6 +34,8 @@
     "eslint-config-next": "16.2.12",
     "tailwindcss": "4.3.3",
     "typescript": "catalog:",
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "drizzle-kit": "0.31.10",
+    "@types/bcrypt": "6.0.0"
   }
 }

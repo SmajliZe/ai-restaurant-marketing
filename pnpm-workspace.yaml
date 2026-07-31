@@ -14,5 +14,7 @@ catalog:
 # sharp powers next/image optimisation, unrs-resolver backs the ESLint
 # import resolver.
 onlyBuiltDependencies:
+  - bcrypt
+  - esbuild
   - sharp
   - unrs-resolver

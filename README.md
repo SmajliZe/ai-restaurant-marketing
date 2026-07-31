@@ -14,7 +14,8 @@ There is still no database schema and no authentication.
 | `apps/web`        | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 |
 | `apps/ai-service` | FastAPI on Python 3.12, Pydantic v2                           |
 | AI                | Google Gemini (`gemini-3.6-flash`) via the `google-genai` SDK |
-| Database          | PostgreSQL 17                                                 |
+| Auth              | Auth.js v5 (`next-auth`), credentials + JWT sessions          |
+| Database          | PostgreSQL 17 with Drizzle ORM                                |
 | Workspace         | pnpm workspaces                                               |
 | Local runtime     | Docker Compose                                                |
 
@@ -31,10 +32,19 @@ cp .env.example .env    # then edit the values; the stack refuses to start witho
 docker compose up --build
 ```
 
-Caption generation needs a Gemini API key. Create one for free at
-[aistudio.google.com/apikey](https://aistudio.google.com/apikey) — no credit card, and the Flash
-models used here are on the free tier — then set `GEMINI_API_KEY` in `.env`. Everything else,
-including the health checks, works without it; only `/content/generate-caption` returns 503.
+Two values in `.env` need your attention before the stack will start:
+
+- `AUTH_SECRET` signs session cookies and has no default. Generate one with
+  `openssl rand -base64 32`.
+- `GEMINI_API_KEY` is free from [aistudio.google.com/apikey](https://aistudio.google.com/apikey) —
+  no credit card, and the Flash models used here are on the free tier. Everything else, including
+  the health checks, works without it; only caption generation returns 503.
+
+Then apply the database migrations once:
+
+```bash
+docker compose exec web pnpm --filter @restaurant-ai/web db:migrate
+```
 
 | Service    | URL                        |
 | ---------- | -------------------------- |
@@ -46,6 +56,21 @@ including the health checks, works without it; only `/content/generate-caption` 
 Both application containers run in development mode with the source bind-mounted, so edits on
 the host reload inside the container. Postgres data survives restarts in the `postgres-data`
 named volume; `docker compose down -v` is what wipes it.
+
+## Accounts and the restaurant profile
+
+Register at `/register`, sign in at `/login`, then fill in `/profile`. Passwords are hashed with
+bcrypt at cost 12 and are never stored, logged, or returned; sessions are JWTs signed with
+`AUTH_SECRET`, so no session table is needed.
+
+An account owns exactly one restaurant, enforced by a unique constraint on `restaurants.owner_id`.
+Only name, address, country, language, cuisine type and tone of voice are required — the rest of
+the profile can be filled in whenever.
+
+`/profile` and `/dashboard` are guarded by `src/proxy.ts`, which redirects an anonymous visitor to
+`/login`. That is a redirect, not the authorisation: the page and the Server Action each call
+`auth()` themselves, and the owner written to the database always comes from the session rather
+than from the submitted form.
 
 ## Generating a caption
 
@@ -103,9 +128,16 @@ uvicorn app.main:app --reload
 ```
 apps/
   web/                     Next.js application
+    auth.ts                Auth.js, Node runtime: credentials, bcrypt, database
+    auth.config.ts         The edge-safe half, shared with the proxy
+    drizzle.config.ts      Migration settings
+    src/proxy.ts           Route protection (Next 16's name for middleware)
+    src/db/                Drizzle schema, client and migrations
     src/app/               App Router routes, layouts, route handlers
     src/modules/           Feature modules - the bulk of product code lands here
+      auth/                Registration and sign-in, password hashing
       content-generation/  Server Action, sharp pipeline, upload rules, types
+      restaurant-profile/  Profile repository, validation and Server Actions
     src/components/        Presentational components, grouped by feature
     src/lib/               Framework-agnostic helpers and clients
     src/types/             App-local types (shared ones go in packages/shared-types)
@@ -155,7 +187,14 @@ Run from the repository root:
 | `pnpm lint`      | ESLint, warnings treated as failures    |
 | `pnpm typecheck` | `tsc --noEmit` across the workspace     |
 | `pnpm test`      | Vitest across the workspace             |
-| `pnpm format`    | Prettier write across the repository    |
+
+Database migrations, from `apps/web` with `DATABASE_URL` set:
+
+| Command            | Effect                                        |
+| ------------------ | --------------------------------------------- |
+| `pnpm db:generate` | Write a migration from changes to `schema.ts` |
+| `pnpm db:migrate`  | Apply pending migrations                      |
+| `pnpm format`      | Prettier write across the repository          |
 
 In `apps/ai-service` (with the virtualenv active):
 
@@ -180,6 +219,7 @@ In `apps/ai-service` (with the virtualenv active):
 
 ## Next steps
 
-Deliberately deferred: database schema and migrations, authentication, and persisting generated
-captions. Enhanced images are currently written to the OS temp directory and served by a route
-handler, which works for one instance and nothing more — real object storage replaces it next.
+Deliberately deferred: persisting generated captions against a restaurant, password reset, and
+email verification. Enhanced images are still written to the OS temp directory and served by a
+route handler, which works for one instance and nothing more — real object storage replaces it
+next.

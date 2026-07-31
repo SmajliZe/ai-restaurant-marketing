@@ -66,6 +66,12 @@ services:
       NEXT_PUBLIC_APP_URL: http://localhost:${WEB_PORT:-3000}
       AI_SERVICE_URL: http://ai-service:8000
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Signs the session cookie. Sessions from a previous secret stop working
+      # the moment it changes, which is the point.
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env, see .env.example}
+      # The container sees a different host than the browser does, so Auth.js
+      # has to take the forwarded host at its word.
+      AUTH_TRUST_HOST: 'true'
       WATCHPACK_POLLING: 'true'
     ports:
       - '${WEB_PORT:-3000}:3000'
