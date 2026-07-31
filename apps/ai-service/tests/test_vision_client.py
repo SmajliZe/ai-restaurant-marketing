@@ -206,3 +206,30 @@ async def test_sends_the_image_and_schema_the_way_gemini_expects(
         if "inlineData" in part
     ]
     assert [part["mimeType"] for part in inline_data] == ["image/jpeg"]
+
+
+async def test_the_restaurant_context_reaches_the_system_instruction(
+    gemini_stub: _StubGemini,
+    jpeg_bytes: bytes,
+) -> None:
+    await vision_client.generate_caption(
+        jpeg_bytes,
+        mime_type="image/jpeg",
+        tone_of_voice="luxury",
+        cuisine_type="Neapolitan pizza",
+    )
+
+    instruction = json.dumps(gemini_stub.request["systemInstruction"])
+    assert "Write in a luxury tone." in instruction
+    assert "It is a Neapolitan pizza restaurant." in instruction
+
+
+async def test_without_context_the_system_instruction_stays_generic(
+    gemini_stub: _StubGemini,
+    jpeg_bytes: bytes,
+) -> None:
+    await vision_client.generate_caption(jpeg_bytes, mime_type="image/jpeg")
+
+    instruction = json.dumps(gemini_stub.request["systemInstruction"])
+    assert "About this restaurant" not in instruction
+    assert "You write Instagram copy for restaurants." in instruction

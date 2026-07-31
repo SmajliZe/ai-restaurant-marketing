@@ -22,7 +22,7 @@ from app.domain.content_generation.errors import (
     AIServiceConfigurationError,
     AIServiceError,
 )
-from app.domain.content_generation.prompts import CAPTION_SYSTEM_PROMPT, CAPTION_USER_PROMPT
+from app.domain.content_generation.prompts import CAPTION_USER_PROMPT, build_caption_system_prompt
 from app.infrastructure.config import get_settings
 
 # Flash-class model with image input, currently on the Gemini free tier.
@@ -59,7 +59,13 @@ def _client() -> genai.Client:
     return genai.Client(api_key=api_key)
 
 
-async def generate_caption(image_bytes: bytes, *, mime_type: str) -> Mapping[str, Any]:
+async def generate_caption(
+    image_bytes: bytes,
+    *,
+    mime_type: str,
+    tone_of_voice: str | None = None,
+    cuisine_type: str | None = None,
+) -> Mapping[str, Any]:
     """Ask Gemini to identify the dish and draft a caption.
 
     Implements ``app.domain.content_generation.ports.CaptionGenerator``.
@@ -75,7 +81,7 @@ async def generate_caption(image_bytes: bytes, *, mime_type: str) -> Mapping[str
             model=MODEL_NAME,
             contents=contents,
             config=types.GenerateContentConfig(
-                system_instruction=CAPTION_SYSTEM_PROMPT,
+                system_instruction=build_caption_system_prompt(tone_of_voice, cuisine_type),
                 # Constrains decoding to the schema, so the response is parsed
                 # rather than scraped out of prose.
                 response_mime_type="application/json",

@@ -6,8 +6,10 @@ import type {
   CaptionOutcome,
   EnhancementOutcome,
   GenerateContentResult,
+  RestaurantContext,
 } from '@/modules/content-generation/types';
 import { describeUploadProblem } from '@/modules/content-generation/upload-constraints';
+import { getProfileForCurrentUser } from '@/modules/restaurant-profile/actions';
 
 /**
  * Generous: a vision model working on a 10 MB photo is not fast, and a caption
@@ -23,6 +25,18 @@ const AI_REQUEST_TIMEOUT_MS = 45_000;
  */
 class UserFacingError extends Error {}
 
+const PROFILE_REQUIRED =
+  'Complete your restaurant profile before generating captions, so we know how to write.';
+
+/**
+ * Generate a caption and an enhanced copy of an uploaded photo.
+ *
+ * The restaurant details are read here from the session's own profile rather
+ * than taken as an argument. A Server Action's arguments arrive from the
+ * browser, so a caller that could pass its own tone and cuisine could ask us
+ * to write as any restaurant it liked - the same reason the profile's owner
+ * comes from the session and not from the form.
+ */
 export async function generateContent(formData: FormData): Promise<GenerateContentResult> {
   const file = formData.get('image');
 
@@ -35,12 +49,24 @@ export async function generateContent(formData: FormData): Promise<GenerateConte
     return { status: 'rejected', message: problem };
   }
 
+  // The page refuses to render the form without a profile; this is the same
+  // rule enforced where it cannot be skipped.
+  const profile = await getProfileForCurrentUser();
+  if (profile === null) {
+    return { status: 'rejected', message: PROFILE_REQUIRED };
+  }
+
+  const restaurantContext: RestaurantContext = {
+    toneOfVoice: profile.toneOfVoice,
+    cuisineType: profile.cuisineType,
+  };
+
   const buffer = Buffer.from(await file.arrayBuffer());
 
   // allSettled rather than all: the two halves are independent, and a caption
   // is still worth showing when the enhancement fails, or the other way round.
   const [caption, enhancement] = await Promise.allSettled([
-    requestCaption(file),
+    requestCaption(file, restaurantContext),
     enhanceAndStore(buffer),
   ]);
 
@@ -57,7 +83,10 @@ type CaptionPayload = {
   hashtags: string[];
 };
 
-async function requestCaption(file: File): Promise<CaptionPayload> {
+async function requestCaption(
+  file: File,
+  restaurantContext: RestaurantContext,
+): Promise<CaptionPayload> {
   const baseUrl = process.env.AI_SERVICE_URL;
   if (!baseUrl) {
     throw new UserFacingError('AI_SERVICE_URL is not configured.');
@@ -65,6 +94,9 @@ async function requestCaption(file: File): Promise<CaptionPayload> {
 
   const body = new FormData();
   body.append('image', file, file.name);
+  // snake_case: these are the AI service's field names, not ours.
+  body.append('tone_of_voice', restaurantContext.toneOfVoice);
+  body.append('cuisine_type', restaurantContext.cuisineType);
 
   const response = await fetch(`${baseUrl}/content/generate-caption`, {
     method: 'POST',

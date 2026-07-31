@@ -16,6 +16,16 @@ class CaptionGenerator(Protocol):
     Returns the raw mapping the provider produced. Implementations are
     responsible for translating provider-specific failures into the exceptions
     in ``app.domain.content_generation.errors``.
+
+    The restaurant details are optional so the service stays usable without a
+    profile behind it.
     """
 
-    async def __call__(self, image_bytes: bytes, *, mime_type: str) -> Mapping[str, Any]: ...
+    async def __call__(
+        self,
+        image_bytes: bytes,
+        *,
+        mime_type: str,
+        tone_of_voice: str | None = None,
+        cuisine_type: str | None = None,
+    ) -> Mapping[str, Any]: ...
