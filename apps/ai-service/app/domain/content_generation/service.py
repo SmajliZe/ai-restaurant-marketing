@@ -35,8 +35,14 @@ async def generate_content(
     image_bytes: bytes,
     *,
     caption_generator: CaptionGenerator,
+    tone_of_voice: str | None = None,
+    cuisine_type: str | None = None,
 ) -> CaptionResponse:
     """Describe the dish in ``image_bytes`` and draft a caption for it.
+
+    ``tone_of_voice`` and ``cuisine_type`` come from the calling restaurant's
+    profile when there is one. Both are optional, so the service answers the
+    same way it always did when nothing is known about the caller.
 
     Raises:
         ImageTooLargeError: The image is over ``MAX_IMAGE_BYTES``.
@@ -48,7 +54,12 @@ async def generate_content(
     # here would stall every other request the worker is serving.
     mime_type = await anyio.to_thread.run_sync(detect_supported_mime_type, image_bytes)
 
-    generated = await caption_generator(image_bytes, mime_type=mime_type)
+    generated = await caption_generator(
+        image_bytes,
+        mime_type=mime_type,
+        tone_of_voice=tone_of_voice,
+        cuisine_type=cuisine_type,
+    )
     return _to_caption_response(generated)
 
 

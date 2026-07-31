@@ -28,5 +28,5 @@ export default auth((request) => {
 });
 
 export const config = {
-  matcher: ['/profile/:path*', '/dashboard/:path*'],
+  matcher: ['/generate/:path*', '/profile/:path*', '/dashboard/:path*'],
 };

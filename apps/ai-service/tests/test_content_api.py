@@ -127,3 +127,56 @@ def test_documents_every_status_code_it_can_return(client: TestClient) -> None:
     for code in ("413", "415", "422", "502", "503"):
         schema = responses[code]["content"]["application/json"]["schema"]
         assert schema["$ref"].endswith("/ErrorResponse"), code
+
+
+def test_forwards_the_restaurant_context_from_the_form(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    caption_generator: RecordingCaptionGenerator,
+) -> None:
+    response = client.post(
+        ENDPOINT,
+        files={"image": ("dish.jpg", jpeg_bytes, "image/jpeg")},
+        data={"tone_of_voice": "luxury", "cuisine_type": "Neapolitan pizza"},
+    )
+
+    assert response.status_code == 200
+    assert caption_generator.contexts == [("luxury", "Neapolitan pizza")]
+
+
+def test_the_restaurant_context_is_optional(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    caption_generator: RecordingCaptionGenerator,
+) -> None:
+    """The service stays callable on its own, without a profile behind it."""
+    response = client.post(ENDPOINT, files={"image": ("dish.jpg", jpeg_bytes, "image/jpeg")})
+
+    assert response.status_code == 200
+    assert caption_generator.contexts == [(None, None)]
+
+
+def test_empty_context_fields_count_as_absent(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    caption_generator: RecordingCaptionGenerator,
+) -> None:
+    response = client.post(
+        ENDPOINT,
+        files={"image": ("dish.jpg", jpeg_bytes, "image/jpeg")},
+        data={"tone_of_voice": "", "cuisine_type": "   "},
+    )
+
+    assert response.status_code == 200
+    assert caption_generator.contexts == [(None, None)]
+
+
+def test_documents_the_context_fields_as_optional(client: TestClient) -> None:
+    spec = client.get("/openapi.json").json()
+    body = spec["paths"][ENDPOINT]["post"]["requestBody"]
+    reference = body["content"]["multipart/form-data"]["schema"]["$ref"]
+    schema = spec["components"]["schemas"][reference.rsplit("/", 1)[-1]]
+
+    assert set(schema["properties"]) == {"image", "tone_of_voice", "cuisine_type"}
+    # Only the photo is required; a caller with no profile can still call this.
+    assert schema["required"] == ["image"]

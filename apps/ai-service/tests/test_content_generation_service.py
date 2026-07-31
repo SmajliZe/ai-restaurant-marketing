@@ -114,3 +114,27 @@ async def test_rejects_a_response_missing_required_fields(jpeg_bytes: bytes) -> 
 
     with pytest.raises(AIServiceError, match="unexpected response"):
         await generate_content(jpeg_bytes, caption_generator=incomplete)
+
+
+async def test_passes_the_restaurant_context_to_the_generator(
+    jpeg_bytes: bytes,
+    caption_generator: RecordingCaptionGenerator,
+) -> None:
+    await generate_content(
+        jpeg_bytes,
+        caption_generator=caption_generator,
+        tone_of_voice="luxury",
+        cuisine_type="Neapolitan pizza",
+    )
+
+    assert caption_generator.contexts == [("luxury", "Neapolitan pizza")]
+
+
+async def test_works_without_any_restaurant_context(
+    jpeg_bytes: bytes,
+    caption_generator: RecordingCaptionGenerator,
+) -> None:
+    result = await generate_content(jpeg_bytes, caption_generator=caption_generator)
+
+    assert result.recognized_dish == "Margherita pizza"
+    assert caption_generator.contexts == [(None, None)]

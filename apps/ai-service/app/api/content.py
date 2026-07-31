@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Final
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 
 from app.api.dependencies import get_caption_generator
 from app.domain.content_generation.errors import ImageTooLargeError, InvalidImageError
@@ -14,7 +14,11 @@ from app.domain.content_generation.service import (
     SUPPORTED_MIME_TYPES,
     generate_content,
 )
-from app.schemas.content_generation import CaptionResponse, ErrorResponse
+from app.schemas.content_generation import (
+    CaptionRequestContext,
+    CaptionResponse,
+    ErrorResponse,
+)
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -56,10 +60,23 @@ _ERROR_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
 async def generate_caption(
     image: Annotated[UploadFile, File(description="JPEG, PNG or WebP photo, up to 10 MB.")],
     caption_generator: Annotated[CaptionGenerator, Depends(get_caption_generator)],
+    tone_of_voice: Annotated[str | None, Form(description="Voice to write in.")] = None,
+    cuisine_type: Annotated[str | None, Form(description="What the restaurant serves.")] = None,
 ) -> CaptionResponse:
     _reject_unsupported_content_type(image.content_type)
     image_bytes = await _read_within_limit(image)
-    return await generate_content(image_bytes, caption_generator=caption_generator)
+
+    # Declared as separate form fields rather than a model bound with Form():
+    # FastAPI would take the model as a single field named "context", which is
+    # not the flat multipart shape the web app sends.
+    context = CaptionRequestContext(tone_of_voice=tone_of_voice, cuisine_type=cuisine_type)
+
+    return await generate_content(
+        image_bytes,
+        caption_generator=caption_generator,
+        tone_of_voice=context.tone_of_voice,
+        cuisine_type=context.cuisine_type,
+    )
 
 
 def _reject_unsupported_content_type(content_type: str | None) -> None:

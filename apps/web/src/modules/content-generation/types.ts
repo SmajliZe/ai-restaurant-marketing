@@ -12,6 +12,17 @@ export type GeneratedContent = {
   enhancedImageUrl: string;
 };
 
+/**
+ * The parts of a restaurant's profile that shape the caption.
+ *
+ * Read from the session's profile inside the Server Action, never accepted
+ * from the caller - see the note on `generateContent`.
+ */
+export type RestaurantContext = {
+  toneOfVoice: string;
+  cuisineType: string;
+};
+
 export type CaptionOutcome =
   | ({ ok: true } & Pick<GeneratedContent, 'recognizedDish' | 'caption' | 'hashtags'>)
   | { ok: false; message: string };

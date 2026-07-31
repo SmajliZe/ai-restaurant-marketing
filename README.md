@@ -67,26 +67,39 @@ An account owns exactly one restaurant, enforced by a unique constraint on `rest
 Only name, address, country, language, cuisine type and tone of voice are required — the rest of
 the profile can be filled in whenever.
 
-`/profile` and `/dashboard` are guarded by `src/proxy.ts`, which redirects an anonymous visitor to
-`/login`. That is a redirect, not the authorisation: the page and the Server Action each call
-`auth()` themselves, and the owner written to the database always comes from the session rather
-than from the submitted form.
+`/generate`, `/profile` and `/dashboard` are guarded by `src/proxy.ts`, which redirects an
+anonymous visitor to `/login`. That is a redirect, not the authorisation: the page and the Server
+Action each call `auth()` themselves, and the owner written to the database always comes from the
+session rather than from the submitted form.
 
 ## Generating a caption
 
 Through the UI, open [localhost:3000/generate](http://localhost:3000/generate) and pick a photo.
-The web app does two things at once: it asks the AI service for a caption, and it enhances the
-photo locally with sharp — auto-orienting it from EXIF, stretching its tonal range, and lifting
-saturation, contrast and sharpness, all at the photo's original dimensions. The two are
+You need an account and a saved restaurant profile first — the page says so and links you there
+rather than redirecting, because the caption is written in your restaurant's voice and there is
+nothing sensible to write without one.
+
+The web app then does two things at once: it asks the AI service for a caption, and it enhances
+the photo locally with sharp — auto-orienting it from EXIF, stretching its tonal range, and
+lifting saturation, contrast and sharpness, all at the photo's original dimensions. The two are
 independent, so if the AI call fails you still get the enhanced image, and vice versa — the page
 says which half did not work.
+
+The tone of voice and cuisine type from the profile are sent along with the photo and folded into
+the model's system prompt. They are read from the session's profile inside the Server Action, not
+taken from the submitted form, for the same reason the profile's owner is.
 
 Against the AI service directly:
 
 ```bash
 curl -X POST http://localhost:8000/content/generate-caption \
-  -F "image=@/path/to/dish.jpg;type=image/jpeg"
+  -F "image=@/path/to/dish.jpg;type=image/jpeg" \
+  -F "tone_of_voice=luxury" \
+  -F "cuisine_type=Neapolitan pizza"
 ```
+
+Both context fields are optional there. The service answers the same way it always did without
+them, so it stays usable on its own.
 
 ```json
 {

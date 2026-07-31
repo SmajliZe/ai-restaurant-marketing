@@ -44,9 +44,18 @@ class RecordingCaptionGenerator:
         self.result = GENERATED_CAPTION if result is None else result
         self.error = error
         self.calls: list[tuple[bytes, str]] = []
+        self.contexts: list[tuple[str | None, str | None]] = []
 
-    async def __call__(self, image_bytes: bytes, *, mime_type: str) -> Mapping[str, Any]:
+    async def __call__(
+        self,
+        image_bytes: bytes,
+        *,
+        mime_type: str,
+        tone_of_voice: str | None = None,
+        cuisine_type: str | None = None,
+    ) -> Mapping[str, Any]:
         self.calls.append((image_bytes, mime_type))
+        self.contexts.append((tone_of_voice, cuisine_type))
         if self.error is not None:
             raise self.error
         return self.result
