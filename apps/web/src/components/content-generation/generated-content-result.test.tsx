@@ -3,7 +3,11 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { GeneratedContentResult } from '@/components/content-generation/generated-content-result';
-import type { ContentOutcome, EnhancementOutcome, StickerType } from '@/modules/content-generation/types';
+import type {
+  ContentOutcome,
+  EnhancementOutcome,
+  StickerType,
+} from '@/modules/content-generation/types';
 
 afterEach(() => {
   cleanup();
@@ -85,7 +89,9 @@ describe('GeneratedContentResult', () => {
 
     expect(screen.getByText('Fresh out of the oven')).toBeInTheDocument();
     expect(screen.getByText('Swipe up to book a table')).toBeInTheDocument();
-    expect(screen.getByText('Margherita or pepperoni tonight?', { exact: false })).toBeInTheDocument();
+    expect(
+      screen.getByText('Margherita or pepperoni tonight?', { exact: false }),
+    ).toBeInTheDocument();
   });
 
   it.each<[StickerType, string]>([
@@ -135,7 +141,9 @@ describe('GeneratedContentResult', () => {
   it('shows a placeholder message instead of the tabs when generation failed', () => {
     const failed: ContentOutcome = { ok: false, message: 'Could not reach the AI service.' };
 
-    render(<GeneratedContentResult originalFile={FILE} content={failed} enhancement={ENHANCEMENT} />);
+    render(
+      <GeneratedContentResult originalFile={FILE} content={failed} enhancement={ENHANCEMENT} />,
+    );
 
     expect(screen.getByRole('alert')).toHaveTextContent('Could not reach the AI service.');
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();

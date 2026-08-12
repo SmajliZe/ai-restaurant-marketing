@@ -73,6 +73,11 @@ services:
       # has to take the forwarded host at its word.
       AUTH_TRUST_HOST: 'true'
       WATCHPACK_POLLING: 'true'
+      # Where enhanced photos referenced by generated_content rows live. A
+      # named volume rather than a path under the bind-mounted source tree, so
+      # it survives an image rebuild the same way postgres-data does and never
+      # risks being swept up by anything that treats apps/web as source only.
+      ENHANCED_IMAGES_DIR: /data/enhanced-images
     ports:
       - '${WEB_PORT:-3000}:3000'
     volumes:
@@ -84,9 +89,11 @@ services:
       - /repo/apps/web/node_modules
       - /repo/apps/web/.next
       - /repo/packages/shared-types/node_modules
+      - enhanced-images-data:/data/enhanced-images
     depends_on:
       ai-service:
         condition: service_started
 
 volumes:
   postgres-data:
+  enhanced-images-data:
