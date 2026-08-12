@@ -18,6 +18,9 @@ const AI_SERVICE_URL = 'http://ai-service.test:8000';
 const PROFILE = {
   toneOfVoice: 'luxury',
   cuisineType: 'Neapolitan pizza',
+  country: 'Italy',
+  language: 'German',
+  targetAudience: 'young professionals',
 } as RestaurantProfile;
 
 async function jpeg(): Promise<Buffer> {
@@ -46,10 +49,23 @@ function respondWith(body: unknown, status = 200) {
   );
 }
 
-const CAPTION_BODY = {
+const CONTENT_BODY = {
   recognized_dish: 'Margherita pizza',
-  caption: 'Blistered crust and mozzarella that pulls for days.',
-  hashtags: ['margherita', 'pizzanight'],
+  confidence: 0.92,
+  instagram: {
+    caption: 'Blistered crust and mozzarella that pulls for days.',
+    hashtags: ['margherita', 'pizzanight'],
+  },
+  facebook: {
+    post: "There's something about a pizza straight out of the oven.",
+    hashtags: ['woodfiredpizza'],
+  },
+  story: {
+    text: 'Fresh out of the oven',
+    cta: 'Swipe up to book a table',
+    sticker_type: 'poll',
+    sticker_prompt: 'Margherita or pepperoni tonight?',
+  },
 };
 
 beforeEach(() => {
@@ -67,25 +83,54 @@ afterEach(() => {
 
 describe('generateContent', () => {
   it('returns both halves when everything works', async () => {
-    vi.stubGlobal('fetch', respondWith(CAPTION_BODY));
+    vi.stubGlobal('fetch', respondWith(CONTENT_BODY));
 
     const result = await generateContent(await formDataWith(await jpeg()));
 
     expect(result).toMatchObject({
       status: 'completed',
-      caption: { ok: true, recognizedDish: 'Margherita pizza' },
+      content: { ok: true, recognizedDish: 'Margherita pizza', confidence: 0.92 },
       enhancement: { ok: true },
     });
   });
 
+  it('maps the nested response into the camelCase shape the UI expects', async () => {
+    vi.stubGlobal('fetch', respondWith(CONTENT_BODY));
+
+    const result = await generateContent(await formDataWith(await jpeg()));
+
+    expect(result).toMatchObject({
+      status: 'completed',
+      content: {
+        ok: true,
+        recognizedDish: 'Margherita pizza',
+        confidence: 0.92,
+        instagram: {
+          caption: 'Blistered crust and mozzarella that pulls for days.',
+          hashtags: ['margherita', 'pizzanight'],
+        },
+        facebook: {
+          post: "There's something about a pizza straight out of the oven.",
+          hashtags: ['woodfiredpizza'],
+        },
+        story: {
+          text: 'Fresh out of the oven',
+          cta: 'Swipe up to book a table',
+          stickerType: 'poll',
+          stickerPrompt: 'Margherita or pepperoni tonight?',
+        },
+      },
+    });
+  });
+
   it('posts the photo to the AI service', async () => {
-    const fetchMock = respondWith(CAPTION_BODY);
+    const fetchMock = respondWith(CONTENT_BODY);
     vi.stubGlobal('fetch', fetchMock);
 
     await generateContent(await formDataWith(await jpeg()));
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(`${AI_SERVICE_URL}/content/generate-caption`);
+    expect(url).toBe(`${AI_SERVICE_URL}/content/generate`);
     expect(init.method).toBe('POST');
     expect(init.body).toBeInstanceOf(FormData);
   });
@@ -97,25 +142,25 @@ describe('generateContent', () => {
 
     expect(result).toMatchObject({
       status: 'completed',
-      caption: { ok: false },
+      content: { ok: false },
       enhancement: { ok: true },
     });
   });
 
-  it('still returns the caption when the enhancement fails', async () => {
-    vi.stubGlobal('fetch', respondWith(CAPTION_BODY));
+  it('still returns the content when the enhancement fails', async () => {
+    vi.stubGlobal('fetch', respondWith(CONTENT_BODY));
 
     const result = await generateContent(await formDataWith('not really a jpeg'));
 
     expect(result).toMatchObject({
       status: 'completed',
-      caption: { ok: true, recognizedDish: 'Margherita pizza' },
+      content: { ok: true, recognizedDish: 'Margherita pizza' },
       enhancement: { ok: false },
     });
   });
 
   it('does not leak library internals when the enhancement fails', async () => {
-    vi.stubGlobal('fetch', respondWith(CAPTION_BODY));
+    vi.stubGlobal('fetch', respondWith(CONTENT_BODY));
 
     const result = await generateContent(await formDataWith('not really a jpeg'));
 
@@ -139,7 +184,7 @@ describe('generateContent', () => {
     const result = await generateContent(await formDataWith(await jpeg()));
 
     expect(result).toMatchObject({
-      caption: {
+      content: {
         ok: false,
         message: 'AI service is temporarily busy, please try again in a moment.',
       },
@@ -152,7 +197,19 @@ describe('generateContent', () => {
     const result = await generateContent(await formDataWith(await jpeg()));
 
     expect(result).toMatchObject({
-      caption: { ok: false, message: 'Could not reach the AI service.' },
+      content: { ok: false, message: 'Could not reach the AI service.' },
+    });
+  });
+
+  it('rejects a response missing a required field', async () => {
+    const incomplete: Record<string, unknown> = { ...CONTENT_BODY };
+    delete incomplete.story;
+    vi.stubGlobal('fetch', respondWith(incomplete));
+
+    const result = await generateContent(await formDataWith(await jpeg()));
+
+    expect(result).toMatchObject({
+      content: { ok: false, message: 'The AI service returned an unexpected response.' },
     });
   });
 
@@ -160,7 +217,7 @@ describe('generateContent', () => {
     ['an unsupported type', { name: 'notes.txt', type: 'text/plain' }],
     ['an empty file', { name: 'empty.jpg', type: 'image/jpeg' }],
   ])('refuses %s without calling the AI service', async (_label, options) => {
-    const fetchMock = respondWith(CAPTION_BODY);
+    const fetchMock = respondWith(CONTENT_BODY);
     vi.stubGlobal('fetch', fetchMock);
     const content = options.name === 'empty.jpg' ? '' : 'hello';
 
@@ -179,7 +236,7 @@ describe('generateContent', () => {
 
 describe('the restaurant context', () => {
   async function sentFields(): Promise<FormData> {
-    const fetchMock = respondWith(CAPTION_BODY);
+    const fetchMock = respondWith(CONTENT_BODY);
     vi.stubGlobal('fetch', fetchMock);
 
     await generateContent(await formDataWith(await jpeg()));
@@ -188,19 +245,33 @@ describe('the restaurant context', () => {
     return init.body as FormData;
   }
 
-  it('travels to the AI service alongside the photo', async () => {
+  it('travels to the AI service alongside the photo, all five fields', async () => {
     const body = await sentFields();
 
     expect(body.get('tone_of_voice')).toBe('luxury');
     expect(body.get('cuisine_type')).toBe('Neapolitan pizza');
+    expect(body.get('country')).toBe('Italy');
+    expect(body.get('language')).toBe('German');
+    expect(body.get('target_audience')).toBe('young professionals');
   });
 
-  it('comes from the profile, not from the submitted form', async () => {
-    const fetchMock = respondWith(CAPTION_BODY);
+  it('sends an empty target_audience rather than omitting it when the profile has none', async () => {
+    getProfileForCurrentUser.mockResolvedValue({ ...PROFILE, targetAudience: null });
+
+    const body = await sentFields();
+
+    expect(body.get('target_audience')).toBe('');
+  });
+
+  it('comes exclusively from the profile, never from the submitted form', async () => {
+    const fetchMock = respondWith(CONTENT_BODY);
     vi.stubGlobal('fetch', fetchMock);
     const spoofed = await formDataWith(await jpeg());
     spoofed.set('tone_of_voice', 'whatever-the-client-wants');
     spoofed.set('cuisine_type', 'also-the-client');
+    spoofed.set('country', 'also-the-client');
+    spoofed.set('language', 'also-the-client');
+    spoofed.set('target_audience', 'also-the-client');
 
     await generateContent(spoofed);
 
@@ -208,10 +279,13 @@ describe('the restaurant context', () => {
     const body = init.body as FormData;
     expect(body.getAll('tone_of_voice')).toEqual(['luxury']);
     expect(body.getAll('cuisine_type')).toEqual(['Neapolitan pizza']);
+    expect(body.getAll('country')).toEqual(['Italy']);
+    expect(body.getAll('language')).toEqual(['German']);
+    expect(body.getAll('target_audience')).toEqual(['young professionals']);
   });
 
   it('is refused outright when there is no profile', async () => {
-    const fetchMock = respondWith(CAPTION_BODY);
+    const fetchMock = respondWith(CONTENT_BODY);
     vi.stubGlobal('fetch', fetchMock);
     getProfileForCurrentUser.mockResolvedValue(null);
 
@@ -220,14 +294,14 @@ describe('the restaurant context', () => {
     expect(result).toEqual({
       status: 'rejected',
       message:
-        'Complete your restaurant profile before generating captions, so we know how to write.',
+        'Complete your restaurant profile before generating content, so we know how to write.',
     });
     // Nothing is generated, so no context is sent and no photo leaves the box.
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('is not looked up for an upload that was already rejected', async () => {
-    vi.stubGlobal('fetch', respondWith(CAPTION_BODY));
+    vi.stubGlobal('fetch', respondWith(CONTENT_BODY));
 
     await generateContent(await formDataWith('hello', { name: 'notes.txt', type: 'text/plain' }));
 

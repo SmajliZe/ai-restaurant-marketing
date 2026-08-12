@@ -11,4 +11,4 @@ from app.infrastructure import vision_client
 
 
 def get_caption_generator() -> CaptionGenerator:
-    return vision_client.generate_caption
+    return vision_client.generate_content

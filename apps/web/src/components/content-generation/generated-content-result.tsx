@@ -2,18 +2,25 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import type { CaptionOutcome, EnhancementOutcome } from '@/modules/content-generation/types';
+import type {
+  ContentOutcome,
+  EnhancementOutcome,
+  FacebookContent,
+  InstagramContent,
+  StickerType,
+  StoryContent,
+} from '@/modules/content-generation/types';
 
 type GeneratedContentResultProps = {
   /** The file the user picked. Previewed locally, never uploaded twice. */
   originalFile: File;
-  caption: CaptionOutcome;
+  content: ContentOutcome;
   enhancement: EnhancementOutcome;
 };
 
 export function GeneratedContentResult({
   originalFile,
-  caption,
+  content,
   enhancement,
 }: GeneratedContentResultProps) {
   const originalUrl = useObjectUrl(originalFile);
@@ -35,41 +42,96 @@ export function GeneratedContentResult({
         )}
       </div>
 
-      {caption.ok ? (
-        <CaptionPanel
-          recognizedDish={caption.recognizedDish}
-          caption={caption.caption}
-          hashtags={caption.hashtags}
+      {content.ok ? (
+        <ContentPanel
+          recognizedDish={content.recognizedDish}
+          confidence={content.confidence}
+          instagram={content.instagram}
+          facebook={content.facebook}
+          story={content.story}
         />
       ) : (
-        <Placeholder title="Caption" message={caption.message} />
+        <Placeholder title="Content" message={content.message} />
       )}
     </section>
   );
 }
 
-function CaptionPanel({
+type ContentTab = 'instagram' | 'facebook' | 'story';
+
+const TABS: { id: ContentTab; label: string }[] = [
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'facebook', label: 'Facebook' },
+  { id: 'story', label: 'Story' },
+];
+
+function ContentPanel({
   recognizedDish,
-  caption,
-  hashtags,
+  confidence,
+  instagram,
+  facebook,
+  story,
 }: {
   recognizedDish: string;
-  caption: string;
-  hashtags: string[];
+  confidence: number;
+  instagram: InstagramContent;
+  facebook: FacebookContent;
+  story: StoryContent;
 }) {
+  const [activeTab, setActiveTab] = useState<ContentTab>('instagram');
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <PanelHeading>Recognised dish</PanelHeading>
-        <p className="text-lg font-medium text-slate-100">{recognizedDish}</p>
+        <p className="text-lg font-medium text-slate-100">
+          {recognizedDish}{' '}
+          <span className="text-xs font-normal text-slate-500">
+            {Math.round(confidence * 100)}% confident
+          </span>
+        </p>
       </div>
 
+      <div role="tablist" aria-label="Generated content by platform" className="flex gap-1">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+              activeTab === tab.id
+                ? 'bg-surface-muted text-slate-100'
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div role="tabpanel">
+        {activeTab === 'instagram' && (
+          <TextWithHashtagsPanel text={instagram.caption} hashtags={instagram.hashtags} />
+        )}
+        {activeTab === 'facebook' && (
+          <TextWithHashtagsPanel text={facebook.post} hashtags={facebook.hashtags} />
+        )}
+        {activeTab === 'story' && <StoryPanel story={story} />}
+      </div>
+    </div>
+  );
+}
+
+function TextWithHashtagsPanel({ text, hashtags }: { text: string; hashtags: string[] }) {
+  return (
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-4">
-          <PanelHeading>Caption</PanelHeading>
-          <CopyButton value={caption} />
+        <div className="flex items-center justify-end gap-4">
+          <CopyButton value={text} />
         </div>
-        <p className="bg-surface-muted rounded-lg p-4 text-slate-200">{caption}</p>
+        <p className="bg-surface-muted rounded-lg p-4 text-slate-200">{text}</p>
       </div>
 
       {hashtags.length > 0 && (
@@ -87,6 +149,41 @@ function CaptionPanel({
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+const STICKER_LABELS: Record<StickerType, string> = {
+  poll: 'Poll',
+  question: 'Question',
+  emoji_slider: 'Emoji slider',
+  countdown: 'Countdown',
+};
+
+function StoryPanel({ story }: { story: StoryContent }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-end gap-4">
+          <CopyButton value={story.text} />
+        </div>
+        <p className="bg-surface-muted rounded-lg p-4 text-slate-200">{story.text}</p>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <PanelHeading>Call to action</PanelHeading>
+        <p className="text-slate-300">{story.cta}</p>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <PanelHeading>Sticker</PanelHeading>
+        <p className="text-slate-300">
+          <span className="bg-surface-muted rounded-full px-3 py-1 text-sm text-slate-300">
+            {STICKER_LABELS[story.stickerType]}
+          </span>{' '}
+          {story.stickerPrompt}
+        </p>
+      </div>
     </div>
   );
 }

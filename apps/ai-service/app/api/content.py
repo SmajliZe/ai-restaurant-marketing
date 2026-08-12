@@ -15,8 +15,8 @@ from app.domain.content_generation.service import (
     generate_content,
 )
 from app.schemas.content_generation import (
-    CaptionRequestContext,
-    CaptionResponse,
+    ContentRequestContext,
+    ContentResponse,
     ErrorResponse,
 )
 
@@ -42,40 +42,58 @@ _ERROR_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
     },
     status.HTTP_502_BAD_GATEWAY: {
         "model": ErrorResponse,
-        "description": "The AI provider failed or returned something unusable.",
+        "description": "The AI provider failed, refused, or returned something unusable.",
     },
     status.HTTP_503_SERVICE_UNAVAILABLE: {
         "model": ErrorResponse,
         "description": "The AI provider is rate limiting us, or is not configured.",
     },
+    status.HTTP_504_GATEWAY_TIMEOUT: {
+        "model": ErrorResponse,
+        "description": "The AI provider did not respond in time.",
+    },
 }
 
 
 @router.post(
-    "/generate-caption",
-    response_model=CaptionResponse,
+    "/generate",
+    response_model=ContentResponse,
     responses=_ERROR_RESPONSES,
-    summary="Generate an Instagram caption from a photo of a dish",
+    summary="Generate Instagram, Facebook, and Story content from a photo of a dish",
 )
-async def generate_caption(
+async def generate_content_route(
     image: Annotated[UploadFile, File(description="JPEG, PNG or WebP photo, up to 10 MB.")],
     caption_generator: Annotated[CaptionGenerator, Depends(get_caption_generator)],
     tone_of_voice: Annotated[str | None, Form(description="Voice to write in.")] = None,
     cuisine_type: Annotated[str | None, Form(description="What the restaurant serves.")] = None,
-) -> CaptionResponse:
+    country: Annotated[str | None, Form(description="Where the restaurant is.")] = None,
+    language: Annotated[str | None, Form(description="Language to write the content in.")] = None,
+    target_audience: Annotated[
+        str | None, Form(description="Who the content should speak to.")
+    ] = None,
+) -> ContentResponse:
     _reject_unsupported_content_type(image.content_type)
     image_bytes = await _read_within_limit(image)
 
     # Declared as separate form fields rather than a model bound with Form():
     # FastAPI would take the model as a single field named "context", which is
     # not the flat multipart shape the web app sends.
-    context = CaptionRequestContext(tone_of_voice=tone_of_voice, cuisine_type=cuisine_type)
+    context = ContentRequestContext(
+        tone_of_voice=tone_of_voice,
+        cuisine_type=cuisine_type,
+        country=country,
+        language=language,
+        target_audience=target_audience,
+    )
 
     return await generate_content(
         image_bytes,
         caption_generator=caption_generator,
         tone_of_voice=context.tone_of_voice,
         cuisine_type=context.cuisine_type,
+        country=context.country,
+        language=context.language,
+        target_audience=context.target_audience,
     )
 
 

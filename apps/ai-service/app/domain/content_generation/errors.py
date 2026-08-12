@@ -39,3 +39,18 @@ class AIServiceBusyError(AIServiceError):
 
 class AIServiceConfigurationError(AIServiceError):
     """The provider is not usable because credentials are missing."""
+
+
+class AIResponseMalformedError(AIServiceError):
+    """The provider replied, but the content does not match the response we
+    ask it to return - missing keys, non-JSON output, or a shape Pydantic
+    rejects."""
+
+
+class AIRefusalError(AIServiceError):
+    """The provider declined to answer, for example a safety refusal that
+    leaves the response empty or without a candidate."""
+
+
+class AITimeoutError(AIServiceError):
+    """The provider did not answer within the time we allow for a call."""

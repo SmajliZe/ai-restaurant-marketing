@@ -45,7 +45,7 @@ export function ContentGenerationPanel() {
       {submission?.result.status === 'completed' && (
         <GeneratedContentResult
           originalFile={submission.file}
-          caption={submission.result.caption}
+          content={submission.result.content}
           enhancement={submission.result.enhancement}
         />
       )}

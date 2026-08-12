@@ -13,9 +13,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.domain.content_generation.errors import (
+    AIRefusalError,
+    AIResponseMalformedError,
     AIServiceBusyError,
     AIServiceConfigurationError,
     AIServiceError,
+    AITimeoutError,
     ImageTooLargeError,
     InvalidImageError,
 )
@@ -33,6 +36,9 @@ def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ImageTooLargeError, _handle_content_too_large)
     app.add_exception_handler(AIServiceBusyError, _handle_busy)
     app.add_exception_handler(AIServiceConfigurationError, _handle_unavailable)
+    app.add_exception_handler(AIResponseMalformedError, _handle_bad_gateway)
+    app.add_exception_handler(AIRefusalError, _handle_bad_gateway)
+    app.add_exception_handler(AITimeoutError, _handle_gateway_timeout)
     app.add_exception_handler(AIServiceError, _handle_bad_gateway)
 
 
@@ -93,3 +99,7 @@ async def _handle_unavailable(_: Request, exc: Exception) -> JSONResponse:
 
 async def _handle_bad_gateway(_: Request, exc: Exception) -> JSONResponse:
     return _error_response(status.HTTP_502_BAD_GATEWAY, exc)
+
+
+async def _handle_gateway_timeout(_: Request, exc: Exception) -> JSONResponse:
+    return _error_response(status.HTTP_504_GATEWAY_TIMEOUT, exc)
