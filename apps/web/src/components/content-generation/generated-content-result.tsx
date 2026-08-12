@@ -65,19 +65,30 @@ const TABS: { id: ContentTab; label: string }[] = [
   { id: 'story', label: 'Story' },
 ];
 
-function ContentPanel({
-  recognizedDish,
-  confidence,
-  instagram,
-  facebook,
-  story,
-}: {
+export type ContentPanelProps = {
   recognizedDish: string;
   confidence: number;
   instagram: InstagramContent;
   facebook: FacebookContent;
   story: StoryContent;
-}) {
+};
+
+/**
+ * The recognised dish, confidence, and Instagram/Facebook/Story tabs for one
+ * piece of generated content.
+ *
+ * Exported so the history page can show the same rendering for a past
+ * generation instead of a second copy of the tab logic - the props are
+ * exactly the shape a `ContentOutcome` and a `GeneratedContentEntry` already
+ * share.
+ */
+export function ContentPanel({
+  recognizedDish,
+  confidence,
+  instagram,
+  facebook,
+  story,
+}: ContentPanelProps) {
   const [activeTab, setActiveTab] = useState<ContentTab>('instagram');
 
   return (

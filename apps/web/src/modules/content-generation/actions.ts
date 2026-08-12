@@ -10,6 +10,7 @@ import type {
   StickerType,
 } from '@/modules/content-generation/types';
 import { describeUploadProblem } from '@/modules/content-generation/upload-constraints';
+import { saveGeneratedContent } from '@/modules/content-history/actions';
 import { getProfileForCurrentUser } from '@/modules/restaurant-profile/actions';
 
 /**
@@ -75,11 +76,52 @@ export async function generateContent(formData: FormData): Promise<GenerateConte
     enhanceAndStore(buffer),
   ]);
 
+  const contentOutcome = toContentOutcome(content);
+  const enhancementOutcome = toEnhancementOutcome(enhancement);
+
+  await recordHistoryIfComplete(profile.id, contentOutcome, enhancementOutcome);
+
   return {
     status: 'completed',
-    content: toContentOutcome(content),
-    enhancement: toEnhancementOutcome(enhancement),
+    content: contentOutcome,
+    enhancement: enhancementOutcome,
   };
+}
+
+/**
+ * Persists a history row for a fully successful run only.
+ *
+ * "Fully" because a history row needs a real enhanced image to point at -
+ * the column is not nullable - so a partial result (content without an
+ * enhancement, or the other way round) is not a "successful AI call" for
+ * this purpose, the same way it is not one for the response the user sees.
+ *
+ * A failure here is logged and swallowed rather than propagated: history is
+ * a record of what happened, not part of the user-facing result, so losing
+ * it to a transient database issue must not cost the user the content they
+ * just watched generate.
+ */
+async function recordHistoryIfComplete(
+  restaurantId: string,
+  content: ContentOutcome,
+  enhancement: EnhancementOutcome,
+): Promise<void> {
+  if (!content.ok || !enhancement.ok) {
+    return;
+  }
+
+  try {
+    await saveGeneratedContent(restaurantId, {
+      recognizedDish: content.recognizedDish,
+      confidence: content.confidence,
+      instagram: content.instagram,
+      facebook: content.facebook,
+      story: content.story,
+      enhancedImagePath: enhancement.enhancedImageUrl,
+    });
+  } catch (error) {
+    console.error('[content-generation] failed to save history', error);
+  }
 }
 
 type ContentPayload = {

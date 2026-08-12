@@ -3,19 +3,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RestaurantProfile } from '@/modules/restaurant-profile/types';
 
-const { getProfileForCurrentUser } = vi.hoisted(() => ({
+const { getProfileForCurrentUser, saveGeneratedContent } = vi.hoisted(() => ({
   getProfileForCurrentUser: vi.fn(),
+  saveGeneratedContent: vi.fn(),
 }));
 
 // Also keeps next-auth out of this suite: the real module reaches for it
 // through the profile action, and it does not resolve outside Next's bundler.
 vi.mock('@/modules/restaurant-profile/actions', () => ({ getProfileForCurrentUser }));
+// Isolates this suite from the database: history persistence is exercised in
+// content-history's own tests, so here it only matters whether it was called.
+vi.mock('@/modules/content-history/actions', () => ({ saveGeneratedContent }));
 
 const { generateContent } = await import('./actions');
 
 const AI_SERVICE_URL = 'http://ai-service.test:8000';
+const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
 
 const PROFILE = {
+  id: RESTAURANT_ID,
   toneOfVoice: 'luxury',
   cuisineType: 'Neapolitan pizza',
   country: 'Italy',
@@ -71,6 +77,7 @@ const CONTENT_BODY = {
 beforeEach(() => {
   vi.stubEnv('AI_SERVICE_URL', AI_SERVICE_URL);
   getProfileForCurrentUser.mockResolvedValue(PROFILE);
+  saveGeneratedContent.mockResolvedValue(undefined);
   // The action logs unexpected failures; tests deliberately cause some.
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -78,6 +85,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   getProfileForCurrentUser.mockReset();
+  saveGeneratedContent.mockReset();
   vi.restoreAllMocks();
 });
 
@@ -306,5 +314,83 @@ describe('the restaurant context', () => {
     await generateContent(await formDataWith('hello', { name: 'notes.txt', type: 'text/plain' }));
 
     expect(getProfileForCurrentUser).not.toHaveBeenCalled();
+  });
+});
+
+describe('saving to history', () => {
+  it("is recorded under the profile's restaurant when both halves succeed", async () => {
+    vi.stubGlobal('fetch', respondWith(CONTENT_BODY));
+
+    const result = await generateContent(await formDataWith(await jpeg()));
+
+    expect(result.status).toBe('completed');
+    if (result.status !== 'completed' || !result.enhancement.ok) {
+      throw new Error('expected the enhancement to have succeeded');
+    }
+    expect(saveGeneratedContent).toHaveBeenCalledWith(RESTAURANT_ID, {
+      recognizedDish: 'Margherita pizza',
+      confidence: 0.92,
+      instagram: {
+        caption: 'Blistered crust and mozzarella that pulls for days.',
+        hashtags: ['margherita', 'pizzanight'],
+      },
+      facebook: {
+        post: "There's something about a pizza straight out of the oven.",
+        hashtags: ['woodfiredpizza'],
+      },
+      story: {
+        text: 'Fresh out of the oven',
+        cta: 'Swipe up to book a table',
+        stickerType: 'poll',
+        stickerPrompt: 'Margherita or pepperoni tonight?',
+      },
+      enhancedImagePath: result.enhancement.enhancedImageUrl,
+    });
+  });
+
+  it('is not recorded when the AI call fails, even though the enhancement succeeds', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
+
+    const result = await generateContent(await formDataWith(await jpeg()));
+
+    expect(result).toMatchObject({ content: { ok: false }, enhancement: { ok: true } });
+    expect(saveGeneratedContent).not.toHaveBeenCalled();
+  });
+
+  it('is not recorded when the enhancement fails, even though the AI call succeeds', async () => {
+    vi.stubGlobal('fetch', respondWith(CONTENT_BODY));
+
+    const result = await generateContent(await formDataWith('not really a jpeg'));
+
+    expect(result).toMatchObject({ content: { ok: true }, enhancement: { ok: false } });
+    expect(saveGeneratedContent).not.toHaveBeenCalled();
+  });
+
+  it('is not recorded when both halves fail', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
+
+    const result = await generateContent(await formDataWith('not really a jpeg'));
+
+    expect(result).toMatchObject({ content: { ok: false }, enhancement: { ok: false } });
+    expect(saveGeneratedContent).not.toHaveBeenCalled();
+  });
+
+  it('does not fail the request when saving to history fails', async () => {
+    vi.stubGlobal('fetch', respondWith(CONTENT_BODY));
+    saveGeneratedContent.mockRejectedValue(new Error('connection terminated'));
+
+    const result = await generateContent(await formDataWith(await jpeg()));
+
+    // The user still sees exactly what they would have if history-saving
+    // had never been added.
+    expect(result).toMatchObject({
+      status: 'completed',
+      content: { ok: true, recognizedDish: 'Margherita pizza' },
+      enhancement: { ok: true },
+    });
+    expect(console.error).toHaveBeenCalledWith(
+      '[content-generation] failed to save history',
+      expect.any(Error),
+    );
   });
 });

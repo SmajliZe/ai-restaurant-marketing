@@ -5,19 +5,25 @@ import path from 'node:path';
 
 /**
  * Somewhere to park an enhanced photo between generating it and the browser
- * fetching it.
+ * fetching it - and, now that a successful generation is recorded in
+ * `generated_content`, for as long as that history row points at it.
  *
- * TODO(milestone-2): replace with real object storage (S3 or equivalent) behind
- * signed URLs. What is here now works for a single instance and nothing more:
- * the files do not survive a restart, a second replica cannot see them, and
- * nothing ever deletes them beyond whatever cleans the OS temp directory.
+ * TODO(milestone-3): replace with real object storage (S3 or equivalent) behind
+ * signed URLs. `ENHANCED_IMAGES_DIR` (set in docker-compose.yml) points at a
+ * Docker-managed named volume, so files now survive a container restart or
+ * rebuild the same way postgres-data does - but it is still one local disk: a
+ * second replica cannot see them, and nothing ever deletes a file once its
+ * history row is gone. Falls back to the OS temp directory when the env var
+ * is unset, which is the case for `pnpm dev`/tests run outside Docker; that
+ * path keeps the old behaviour of not surviving a restart.
  *
  * Note this deliberately does not write into `public/`. Next only serves what
  * was in `public/` at build time, so a file written there at runtime is served
  * in `next dev` and 404s in a production build - the worst kind of difference
  * to discover after deploying.
  */
-const STORAGE_DIRECTORY = path.join(tmpdir(), 'restaurant-ai-enhanced-images');
+const STORAGE_DIRECTORY =
+  process.env.ENHANCED_IMAGES_DIR ?? path.join(tmpdir(), 'restaurant-ai-enhanced-images');
 
 const URL_PREFIX = '/api/enhanced-images';
 

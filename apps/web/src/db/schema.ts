@@ -1,4 +1,4 @@
-import { jsonb, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { jsonb, pgEnum, pgTable, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const TONE_OF_VOICE_VALUES = [
   'friendly',
@@ -93,3 +93,46 @@ export type UserRow = typeof users.$inferSelect;
 export type NewUserRow = typeof users.$inferInsert;
 export type RestaurantRow = typeof restaurants.$inferSelect;
 export type NewRestaurantRow = typeof restaurants.$inferInsert;
+
+// Mirrors app.schemas.content_generation.StickerType in the AI service - the
+// two never drift apart because both spell out the same four values by hand.
+export const STICKER_TYPE_VALUES = ['poll', 'question', 'emoji_slider', 'countdown'] as const;
+
+export type StickerTypeValue = (typeof STICKER_TYPE_VALUES)[number];
+
+export const stickerType = pgEnum('sticker_type', STICKER_TYPE_VALUES);
+
+export const generatedContent = pgTable('generated_content', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // A restaurant's history disappears with the restaurant, the same way a
+  // profile's opening hours would - there is no scenario where a leftover
+  // history row for a deleted restaurant is useful to anyone.
+  restaurantId: uuid('restaurant_id')
+    .notNull()
+    .references(() => restaurants.id, { onDelete: 'cascade' }),
+
+  recognizedDish: text('recognized_dish').notNull(),
+  confidence: real('confidence').notNull(),
+
+  instagramCaption: text('instagram_caption').notNull(),
+  instagramHashtags: jsonb('instagram_hashtags').$type<string[]>().notNull(),
+
+  facebookPost: text('facebook_post').notNull(),
+  facebookHashtags: jsonb('facebook_hashtags').$type<string[]>().notNull(),
+
+  storyText: text('story_text').notNull(),
+  storyCta: text('story_cta').notNull(),
+  storyStickerType: stickerType('story_sticker_type').notNull(),
+  storyStickerPrompt: text('story_sticker_prompt').notNull(),
+
+  // The URL the browser fetches the enhanced photo from (see
+  // enhanced-image-store.ts), not a filesystem path - "path" here matches
+  // what the photo behind it is, not the shape of the string.
+  enhancedImagePath: text('enhanced_image_path').notNull(),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type GeneratedContentRow = typeof generatedContent.$inferSelect;
+export type NewGeneratedContentRow = typeof generatedContent.$inferInsert;
