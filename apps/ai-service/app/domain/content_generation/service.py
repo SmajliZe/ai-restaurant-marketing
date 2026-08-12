@@ -1,4 +1,4 @@
-"""Orchestrates image validation and caption generation."""
+"""Orchestrates image validation and content generation."""
 
 from __future__ import annotations
 
@@ -11,12 +11,17 @@ from PIL import Image
 from pydantic import ValidationError
 
 from app.domain.content_generation.errors import (
-    AIServiceError,
+    AIResponseMalformedError,
     ImageTooLargeError,
     InvalidImageError,
 )
 from app.domain.content_generation.ports import CaptionGenerator
-from app.schemas.content_generation import CaptionResponse
+from app.schemas.content_generation import (
+    ContentResponse,
+    FacebookContent,
+    InstagramContent,
+    StoryContent,
+)
 
 MAX_IMAGE_BYTES: Final = 10 * 1024 * 1024
 
@@ -30,6 +35,12 @@ MIME_TYPE_BY_PILLOW_FORMAT: Final[dict[str, str]] = {
 
 SUPPORTED_MIME_TYPES: Final = frozenset(MIME_TYPE_BY_PILLOW_FORMAT.values())
 
+# What the provider's response must contain at the top level before we try to
+# build a ContentResponse out of it.
+_REQUIRED_TOP_LEVEL_KEYS: Final = frozenset(
+    {"recognized_dish", "confidence", "instagram", "facebook", "story"}
+)
+
 
 async def generate_content(
     image_bytes: bytes,
@@ -37,12 +48,17 @@ async def generate_content(
     caption_generator: CaptionGenerator,
     tone_of_voice: str | None = None,
     cuisine_type: str | None = None,
-) -> CaptionResponse:
-    """Describe the dish in ``image_bytes`` and draft a caption for it.
+    country: str | None = None,
+    language: str | None = None,
+    target_audience: str | None = None,
+) -> ContentResponse:
+    """Describe the dish in ``image_bytes`` and draft Instagram, Facebook, and
+    Story content for it.
 
-    ``tone_of_voice`` and ``cuisine_type`` come from the calling restaurant's
-    profile when there is one. Both are optional, so the service answers the
-    same way it always did when nothing is known about the caller.
+    ``tone_of_voice``, ``cuisine_type``, ``country``, ``language`` and
+    ``target_audience`` come from the calling restaurant's profile when there
+    is one. All are optional, so the service answers the same way it always
+    did when nothing is known about the caller.
 
     Raises:
         ImageTooLargeError: The image is over ``MAX_IMAGE_BYTES``.
@@ -59,8 +75,11 @@ async def generate_content(
         mime_type=mime_type,
         tone_of_voice=tone_of_voice,
         cuisine_type=cuisine_type,
+        country=country,
+        language=language,
+        target_audience=target_audience,
     )
-    return _to_caption_response(generated)
+    return _to_content_response(generated)
 
 
 def detect_supported_mime_type(image_bytes: bytes) -> str:
@@ -95,15 +114,40 @@ def detect_supported_mime_type(image_bytes: bytes) -> str:
     return mime_type
 
 
-def _to_caption_response(generated: Mapping[str, Any]) -> CaptionResponse:
+def _to_content_response(generated: Mapping[str, Any]) -> ContentResponse:
+    # Checked explicitly, rather than left to the KeyError a missing key would
+    # raise below, so a malformed response is always reported the same way
+    # regardless of which key is missing.
+    missing = _REQUIRED_TOP_LEVEL_KEYS - generated.keys()
+    if missing:
+        raise AIResponseMalformedError(
+            f"The AI service response is missing: {', '.join(sorted(missing))}."
+        )
+
     try:
-        return CaptionResponse(
+        instagram = generated["instagram"]
+        facebook = generated["facebook"]
+        story = generated["story"]
+        return ContentResponse(
             recognized_dish=str(generated["recognized_dish"]).strip(),
-            caption=str(generated["caption"]).strip(),
-            hashtags=_normalise_hashtags(generated["hashtags"]),
+            confidence=generated["confidence"],
+            instagram=InstagramContent(
+                caption=str(instagram["caption"]).strip(),
+                hashtags=_normalise_hashtags(instagram["hashtags"]),
+            ),
+            facebook=FacebookContent(
+                post=str(facebook["post"]).strip(),
+                hashtags=_normalise_hashtags(facebook["hashtags"]),
+            ),
+            story=StoryContent(
+                text=str(story["text"]).strip(),
+                cta=str(story["cta"]).strip(),
+                sticker_type=story["sticker_type"],
+                sticker_prompt=str(story["sticker_prompt"]).strip(),
+            ),
         )
     except (KeyError, TypeError, ValidationError) as exc:
-        raise AIServiceError("The AI service returned an unexpected response.") from exc
+        raise AIResponseMalformedError("The AI service returned an unexpected response.") from exc
 
 
 def _normalise_hashtags(hashtags: Iterable[Any]) -> list[str]:

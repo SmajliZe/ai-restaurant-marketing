@@ -1,6 +1,6 @@
 """What the domain needs from an AI provider, expressed without naming one.
 
-``app.infrastructure.vision_client.generate_caption`` is the production
+``app.infrastructure.vision_client.generate_content`` is the production
 implementation; tests substitute a plain function.
 """
 
@@ -28,4 +28,7 @@ class CaptionGenerator(Protocol):
         mime_type: str,
         tone_of_voice: str | None = None,
         cuisine_type: str | None = None,
+        country: str | None = None,
+        language: str | None = None,
+        target_audience: str | None = None,
     ) -> Mapping[str, Any]: ...

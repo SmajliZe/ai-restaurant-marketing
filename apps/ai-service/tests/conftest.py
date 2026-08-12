@@ -20,13 +20,28 @@ from app.domain.content_generation.ports import CaptionGenerator
 from app.infrastructure.config import Settings
 from app.main import create_app
 
-GENERATED_CAPTION: Mapping[str, Any] = {
+GENERATED_CONTENT: Mapping[str, Any] = {
     "recognized_dish": "Margherita pizza",
-    "caption": "Blistered crust and mozzarella that pulls for days.",
-    # Includes a "#" the model was asked not to send, so the tests cover the
-    # normalisation the service performs.
-    "hashtags": ["margherita", "#pizzanight", " ", "margherita"],
+    "confidence": 0.92,
+    "instagram": {
+        "caption": "Blistered crust and mozzarella that pulls for days.",
+        # Includes a "#" the model was asked not to send, so the tests cover
+        # the normalisation the service performs.
+        "hashtags": ["margherita", "#pizzanight", " ", "margherita"],
+    },
+    "facebook": {
+        "post": "There's something about a pizza straight out of the oven.",
+        "hashtags": ["woodfiredpizza"],
+    },
+    "story": {
+        "text": "Fresh out of the oven",
+        "cta": "Swipe up to book a table",
+        "sticker_type": "poll",
+        "sticker_prompt": "Margherita or pepperoni tonight?",
+    },
 }
+
+RestaurantContextArgs = tuple[str | None, str | None, str | None, str | None, str | None]
 
 
 class RecordingCaptionGenerator:
@@ -41,10 +56,10 @@ class RecordingCaptionGenerator:
         result: Mapping[str, Any] | None = None,
         error: Exception | None = None,
     ) -> None:
-        self.result = GENERATED_CAPTION if result is None else result
+        self.result = GENERATED_CONTENT if result is None else result
         self.error = error
         self.calls: list[tuple[bytes, str]] = []
-        self.contexts: list[tuple[str | None, str | None]] = []
+        self.contexts: list[RestaurantContextArgs] = []
 
     async def __call__(
         self,
@@ -53,9 +68,12 @@ class RecordingCaptionGenerator:
         mime_type: str,
         tone_of_voice: str | None = None,
         cuisine_type: str | None = None,
+        country: str | None = None,
+        language: str | None = None,
+        target_audience: str | None = None,
     ) -> Mapping[str, Any]:
         self.calls.append((image_bytes, mime_type))
-        self.contexts.append((tone_of_voice, cuisine_type))
+        self.contexts.append((tone_of_voice, cuisine_type, country, language, target_audience))
         if self.error is not None:
             raise self.error
         return self.result

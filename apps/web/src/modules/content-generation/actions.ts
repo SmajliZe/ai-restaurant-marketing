@@ -3,17 +3,18 @@
 import { storeEnhancedImage } from '@/modules/content-generation/enhanced-image-store';
 import { enhanceImage } from '@/modules/content-generation/image-enhancement';
 import type {
-  CaptionOutcome,
+  ContentOutcome,
   EnhancementOutcome,
   GenerateContentResult,
   RestaurantContext,
+  StickerType,
 } from '@/modules/content-generation/types';
 import { describeUploadProblem } from '@/modules/content-generation/upload-constraints';
 import { getProfileForCurrentUser } from '@/modules/restaurant-profile/actions';
 
 /**
- * Generous: a vision model working on a 10 MB photo is not fast, and a caption
- * that arrives late still beats one that never arrives.
+ * Generous: a vision model working on a 10 MB photo is not fast, and content
+ * that arrives late still beats content that never arrives.
  */
 const AI_REQUEST_TIMEOUT_MS = 45_000;
 
@@ -26,10 +27,11 @@ const AI_REQUEST_TIMEOUT_MS = 45_000;
 class UserFacingError extends Error {}
 
 const PROFILE_REQUIRED =
-  'Complete your restaurant profile before generating captions, so we know how to write.';
+  'Complete your restaurant profile before generating content, so we know how to write.';
 
 /**
- * Generate a caption and an enhanced copy of an uploaded photo.
+ * Generate Instagram, Facebook, and Story content and an enhanced copy of an
+ * uploaded photo.
  *
  * The restaurant details are read here from the session's own profile rather
  * than taken as an argument. A Server Action's arguments arrive from the
@@ -59,34 +61,39 @@ export async function generateContent(formData: FormData): Promise<GenerateConte
   const restaurantContext: RestaurantContext = {
     toneOfVoice: profile.toneOfVoice,
     cuisineType: profile.cuisineType,
+    country: profile.country,
+    language: profile.language,
+    targetAudience: profile.targetAudience,
   };
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  // allSettled rather than all: the two halves are independent, and a caption
+  // allSettled rather than all: the two halves are independent, and content
   // is still worth showing when the enhancement fails, or the other way round.
-  const [caption, enhancement] = await Promise.allSettled([
-    requestCaption(file, restaurantContext),
+  const [content, enhancement] = await Promise.allSettled([
+    requestContent(file, restaurantContext),
     enhanceAndStore(buffer),
   ]);
 
   return {
     status: 'completed',
-    caption: toCaptionOutcome(caption),
+    content: toContentOutcome(content),
     enhancement: toEnhancementOutcome(enhancement),
   };
 }
 
-type CaptionPayload = {
+type ContentPayload = {
   recognized_dish: string;
-  caption: string;
-  hashtags: string[];
+  confidence: number;
+  instagram: { caption: string; hashtags: string[] };
+  facebook: { post: string; hashtags: string[] };
+  story: { text: string; cta: string; sticker_type: StickerType; sticker_prompt: string };
 };
 
-async function requestCaption(
+async function requestContent(
   file: File,
   restaurantContext: RestaurantContext,
-): Promise<CaptionPayload> {
+): Promise<ContentPayload> {
   const baseUrl = process.env.AI_SERVICE_URL;
   if (!baseUrl) {
     throw new UserFacingError('AI_SERVICE_URL is not configured.');
@@ -97,8 +104,11 @@ async function requestCaption(
   // snake_case: these are the AI service's field names, not ours.
   body.append('tone_of_voice', restaurantContext.toneOfVoice);
   body.append('cuisine_type', restaurantContext.cuisineType);
+  body.append('country', restaurantContext.country);
+  body.append('language', restaurantContext.language);
+  body.append('target_audience', restaurantContext.targetAudience ?? '');
 
-  const response = await fetch(`${baseUrl}/content/generate-caption`, {
+  const response = await fetch(`${baseUrl}/content/generate`, {
     method: 'POST',
     body,
     signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
@@ -111,7 +121,7 @@ async function requestCaption(
   }
 
   const payload: unknown = await response.json();
-  if (!isCaptionPayload(payload)) {
+  if (!isContentPayload(payload)) {
     throw new UserFacingError('The AI service returned an unexpected response.');
   }
 
@@ -122,13 +132,27 @@ async function enhanceAndStore(buffer: Buffer): Promise<string> {
   return storeEnhancedImage(await enhanceImage(buffer));
 }
 
-function toCaptionOutcome(result: PromiseSettledResult<CaptionPayload>): CaptionOutcome {
+function toContentOutcome(result: PromiseSettledResult<ContentPayload>): ContentOutcome {
   if (result.status === 'fulfilled') {
+    const payload = result.value;
     return {
       ok: true,
-      recognizedDish: result.value.recognized_dish,
-      caption: result.value.caption,
-      hashtags: result.value.hashtags,
+      recognizedDish: payload.recognized_dish,
+      confidence: payload.confidence,
+      instagram: {
+        caption: payload.instagram.caption,
+        hashtags: payload.instagram.hashtags,
+      },
+      facebook: {
+        post: payload.facebook.post,
+        hashtags: payload.facebook.hashtags,
+      },
+      story: {
+        text: payload.story.text,
+        cta: payload.story.cta,
+        stickerType: payload.story.sticker_type,
+        stickerPrompt: payload.story.sticker_prompt,
+      },
     };
   }
 
@@ -141,7 +165,7 @@ function toCaptionOutcome(result: PromiseSettledResult<CaptionPayload>): Caption
 
   return {
     ok: false,
-    message: describeFailure('caption', result.reason, 'Could not reach the AI service.'),
+    message: describeFailure('content', result.reason, 'Could not reach the AI service.'),
   };
 }
 
@@ -189,7 +213,9 @@ async function readErrorDetail(response: Response): Promise<string> {
   return `The AI service responded with ${response.status}.`;
 }
 
-function isCaptionPayload(value: unknown): value is CaptionPayload {
+const STICKER_TYPES: readonly StickerType[] = ['poll', 'question', 'emoji_slider', 'countdown'];
+
+function isContentPayload(value: unknown): value is ContentPayload {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
@@ -197,8 +223,43 @@ function isCaptionPayload(value: unknown): value is CaptionPayload {
   const candidate = value as Record<string, unknown>;
   return (
     typeof candidate.recognized_dish === 'string' &&
-    typeof candidate.caption === 'string' &&
-    Array.isArray(candidate.hashtags) &&
-    candidate.hashtags.every((hashtag) => typeof hashtag === 'string')
+    typeof candidate.confidence === 'number' &&
+    isInstagramPayload(candidate.instagram) &&
+    isFacebookPayload(candidate.facebook) &&
+    isStoryPayload(candidate.story)
   );
+}
+
+function isInstagramPayload(value: unknown): value is ContentPayload['instagram'] {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.caption === 'string' && isStringArray(candidate.hashtags);
+}
+
+function isFacebookPayload(value: unknown): value is ContentPayload['facebook'] {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.post === 'string' && isStringArray(candidate.hashtags);
+}
+
+function isStoryPayload(value: unknown): value is ContentPayload['story'] {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.text === 'string' &&
+    typeof candidate.cta === 'string' &&
+    typeof candidate.sticker_type === 'string' &&
+    STICKER_TYPES.includes(candidate.sticker_type as StickerType) &&
+    typeof candidate.sticker_prompt === 'string'
+  );
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
