@@ -14,11 +14,8 @@ from app.domain.content_generation.service import (
     SUPPORTED_MIME_TYPES,
     generate_content,
 )
-from app.schemas.content_generation import (
-    ContentRequestContext,
-    ContentResponse,
-    ErrorResponse,
-)
+from app.schemas.common import ErrorResponse
+from app.schemas.content_generation import ContentRequestContext, ContentResponse
 
 router = APIRouter(prefix="/content", tags=["content"])
 

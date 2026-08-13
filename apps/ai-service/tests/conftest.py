@@ -15,7 +15,8 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app.api.dependencies import get_caption_generator
+from app.api.dependencies import get_calendar_generator, get_caption_generator
+from app.domain.content_calendar.ports import CalendarGenerator
 from app.domain.content_generation.ports import CaptionGenerator
 from app.infrastructure.config import Settings
 from app.main import create_app
@@ -79,6 +80,49 @@ class RecordingCaptionGenerator:
         return self.result
 
 
+GENERATED_CALENDAR: Mapping[str, Any] = {
+    "entries": [
+        {
+            "day_of_week": day,
+            "theme": f"Theme {day}",
+            "content_angle": f"Content angle for day {day}.",
+        }
+        for day in range(7)
+    ]
+}
+
+
+class RecordingCalendarGenerator:
+    """Fake ``CalendarGenerator`` that records how it was called.
+
+    ``result`` and ``error`` stay writable so a test can change the outcome
+    after the application has already been wired to this instance.
+    """
+
+    def __init__(
+        self,
+        result: Mapping[str, Any] | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = GENERATED_CALENDAR if result is None else result
+        self.error = error
+        self.contexts: list[RestaurantContextArgs] = []
+
+    async def __call__(
+        self,
+        *,
+        tone_of_voice: str | None = None,
+        cuisine_type: str | None = None,
+        country: str | None = None,
+        language: str | None = None,
+        target_audience: str | None = None,
+    ) -> Mapping[str, Any]:
+        self.contexts.append((tone_of_voice, cuisine_type, country, language, target_audience))
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
 def make_image(
     image_format: str = "JPEG",
     size: tuple[int, int] = (32, 32),
@@ -100,14 +144,23 @@ def caption_generator() -> RecordingCaptionGenerator:
 
 
 @pytest.fixture
-def client(caption_generator: CaptionGenerator) -> Iterator[TestClient]:
-    """Application wired to the fake generator, with settings pinned.
+def calendar_generator() -> RecordingCalendarGenerator:
+    return RecordingCalendarGenerator()
+
+
+@pytest.fixture
+def client(
+    caption_generator: CaptionGenerator,
+    calendar_generator: CalendarGenerator,
+) -> Iterator[TestClient]:
+    """Application wired to the fake generators, with settings pinned.
 
     Settings are passed explicitly so a developer's local .env cannot change
     what the tests assert.
     """
     app = create_app(Settings(environment="test"))
     app.dependency_overrides[get_caption_generator] = lambda: caption_generator
+    app.dependency_overrides[get_calendar_generator] = lambda: calendar_generator
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

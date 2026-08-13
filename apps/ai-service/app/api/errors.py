@@ -22,7 +22,7 @@ from app.domain.content_generation.errors import (
     ImageTooLargeError,
     InvalidImageError,
 )
-from app.schemas.content_generation import ErrorResponse
+from app.schemas.common import ErrorResponse
 
 # Seconds. Long enough for a per-minute quota window to roll over.
 _RETRY_AFTER_SECONDS: Final = 30
