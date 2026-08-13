@@ -1,4 +1,16 @@
-import { jsonb, pgEnum, pgTable, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  date,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 export const TONE_OF_VOICE_VALUES = [
   'friendly',
@@ -136,3 +148,46 @@ export const generatedContent = pgTable('generated_content', {
 
 export type GeneratedContentRow = typeof generatedContent.$inferSelect;
 export type NewGeneratedContentRow = typeof generatedContent.$inferInsert;
+
+export const calendarEntries = pgTable(
+  'calendar_entries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // A restaurant's plan disappears with the restaurant, same as its
+    // history - see the note on generatedContent.restaurantId.
+    restaurantId: uuid('restaurant_id')
+      .notNull()
+      .references(() => restaurants.id, { onDelete: 'cascade' }),
+
+    // The Monday of the week this entry belongs to. A date, not a
+    // timestamp: it identifies a calendar week, not a moment, and storing
+    // it as a plain "YYYY-MM-DD" string sidesteps any timezone conversion
+    // that could otherwise shift it onto the wrong day.
+    weekStartDate: date('week_start_date').notNull(),
+
+    // 0 = Monday .. 6 = Sunday, matching the AI service's CalendarEntry.
+    dayOfWeek: integer('day_of_week').notNull(),
+
+    theme: text('theme').notNull(),
+    contentAngle: text('content_angle').notNull(),
+
+    isCompleted: boolean('is_completed').notNull().default(false),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Regenerating a week replaces its rows (delete + insert in one
+    // transaction) rather than relying on this to prevent duplicates, but
+    // the constraint means a bug in that logic fails loudly at the database
+    // instead of quietly leaving two entries for the same day.
+    uniqueIndex('calendar_entries_restaurant_week_day_unique').on(
+      table.restaurantId,
+      table.weekStartDate,
+      table.dayOfWeek,
+    ),
+  ],
+);
+
+export type CalendarEntryRow = typeof calendarEntries.$inferSelect;
+export type NewCalendarEntryRow = typeof calendarEntries.$inferInsert;

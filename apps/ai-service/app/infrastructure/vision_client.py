@@ -1,46 +1,36 @@
 """Gemini adapter for dish recognition and social content drafting.
 
-Thin on purpose: it owns the SDK call, the response schema, and the translation
-of SDK failures into domain errors. Everything else belongs in
-``app.domain.content_generation``.
+Thin on purpose: it owns the request shape, the response schema, and what to
+do with the parsed result. The client, the model name, and the translation of
+SDK failures into domain errors are shared with every other Gemini adapter -
+see ``app.infrastructure.gemini_client``.
 """
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Mapping
 from enum import StrEnum
-from functools import lru_cache
-from http import HTTPStatus
-from typing import Any, Final
+from typing import Any
 
-from google import genai
-from google.genai import errors as genai_errors
 from google.genai import types
 from pydantic import BaseModel
 
-from app.domain.content_generation.errors import (
-    AIRefusalError,
-    AIResponseMalformedError,
-    AIServiceBusyError,
-    AIServiceConfigurationError,
-    AIServiceError,
-    AITimeoutError,
-)
+from app.domain.content_generation.errors import AIRefusalError, AIResponseMalformedError
 from app.domain.content_generation.prompts import (
     CONTENT_USER_PROMPT,
     build_content_system_prompt,
 )
-from app.infrastructure.config import get_settings
+from app.infrastructure import gemini_client
+from app.infrastructure.gemini_client import call_with_standard_error_handling
 
-# Flash-class model with image input, currently on the Gemini free tier.
-# Model IDs are retired and replaced regularly - check
-# https://ai.google.dev/pricing for what is free today before changing this.
-MODEL_NAME: Final = "gemini-3.6-flash"
-
-# Long enough for a vision call on a 10 MB photo; short enough that a caller
-# is not left waiting on a request that will never come back.
-_REQUEST_TIMEOUT_SECONDS: Final = 30.0
+# Module-level assignments rather than `import ... as ...`: mypy's strict mode
+# does not treat a renaming import as re-exported, which would make
+# `vision_client.MODEL_NAME` and `vision_client._client` invisible to a type
+# checker even though both are valid, monkeypatchable module attributes at
+# runtime - and tests rely on patching exactly these two names.
+MODEL_NAME = gemini_client.MODEL_NAME
+_REQUEST_TIMEOUT_SECONDS = gemini_client.REQUEST_TIMEOUT_SECONDS
+_client = gemini_client.get_client
 
 
 # The JSON shape Gemini is constrained to return.
@@ -84,19 +74,6 @@ class _GeminiContent(BaseModel):
     story: _GeminiStoryContent
 
 
-@lru_cache(maxsize=1)
-def _client() -> genai.Client:
-    """Build the SDK client once; it pools connections across requests.
-
-    ``lru_cache`` does not memoise exceptions, so a missing key keeps raising
-    until the process is restarted with one configured.
-    """
-    api_key = get_settings().gemini_api_key
-    if not api_key:
-        raise AIServiceConfigurationError("GEMINI_API_KEY is not configured")
-    return genai.Client(api_key=api_key)
-
-
 async def generate_content(
     image_bytes: bytes,
     *,
@@ -118,37 +95,26 @@ async def generate_content(
         CONTENT_USER_PROMPT,
     ]
 
-    try:
-        response = await asyncio.wait_for(
-            client.aio.models.generate_content(
-                model=MODEL_NAME,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=build_content_system_prompt(
-                        tone_of_voice,
-                        cuisine_type,
-                        country,
-                        language,
-                        target_audience,
-                    ),
-                    # Constrains decoding to the schema, so the response is parsed
-                    # rather than scraped out of prose.
-                    response_mime_type="application/json",
-                    response_schema=_GeminiContent,
+    response = await call_with_standard_error_handling(
+        lambda: client.aio.models.generate_content(
+            model=MODEL_NAME,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=build_content_system_prompt(
+                    tone_of_voice,
+                    cuisine_type,
+                    country,
+                    language,
+                    target_audience,
                 ),
+                # Constrains decoding to the schema, so the response is parsed
+                # rather than scraped out of prose.
+                response_mime_type="application/json",
+                response_schema=_GeminiContent,
             ),
-            timeout=_REQUEST_TIMEOUT_SECONDS,
-        )
-    except TimeoutError as exc:
-        raise AITimeoutError("The AI service took too long to respond.") from exc
-    except genai_errors.ClientError as exc:
-        if exc.code == HTTPStatus.TOO_MANY_REQUESTS:
-            raise AIServiceBusyError(
-                "AI service is temporarily busy, please try again in a moment."
-            ) from exc
-        raise AIServiceError("The AI service rejected the request.") from exc
-    except genai_errors.APIError as exc:
-        raise AIServiceError("The AI service is currently unavailable.") from exc
+        ),
+        timeout=_REQUEST_TIMEOUT_SECONDS,
+    )
 
     if not response.text:
         # Reached when there is no candidate at all, for example when the

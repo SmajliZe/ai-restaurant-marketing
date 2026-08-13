@@ -4,6 +4,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.common import blank_means_absent
+
 
 class ContentRequestContext(BaseModel):
     """What the caller knows about the restaurant, if anything.
@@ -35,24 +37,14 @@ class ContentRequestContext(BaseModel):
         description='Who the content should speak to, for example "young professionals".',
     )
 
-    @field_validator(
+    _validate_blank = field_validator(
         "tone_of_voice",
         "cuisine_type",
         "country",
         "language",
         "target_audience",
         mode="before",
-    )
-    @classmethod
-    def _blank_means_absent(cls, value: object) -> object:
-        """A form field left empty is the same as one that was never sent.
-
-        Without this, an empty string would reach the prompt and produce
-        "Write in a  tone."
-        """
-        if isinstance(value, str) and value.strip() == "":
-            return None
-        return value
+    )(blank_means_absent)
 
 
 class InstagramContent(BaseModel):
@@ -127,9 +119,3 @@ class ContentResponse(BaseModel):
             ]
         }
     )
-
-
-class ErrorResponse(BaseModel):
-    """Body returned for every handled failure, so clients parse one shape."""
-
-    detail: str = Field(description="Human-readable explanation, safe to show to an end user.")
