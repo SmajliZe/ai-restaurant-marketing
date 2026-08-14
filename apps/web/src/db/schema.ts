@@ -263,3 +263,45 @@ export const menuAnalyses = pgTable('menu_analyses', {
 
 export type MenuAnalysisRow = typeof menuAnalyses.$inferSelect;
 export type NewMenuAnalysisRow = typeof menuAnalyses.$inferInsert;
+
+// Mirrors MessageRole in the marketing-assistant module - the two never
+// drift apart because both spell out the same two values by hand.
+export const MESSAGE_ROLE_VALUES = ['user', 'assistant'] as const;
+
+export type MessageRoleValue = (typeof MESSAGE_ROLE_VALUES)[number];
+
+export const messageRole = pgEnum('message_role', MESSAGE_ROLE_VALUES);
+
+export const assistantConversations = pgTable('assistant_conversations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Unique, because a restaurant has exactly one ongoing conversation for
+  // the MVP - the same one-to-one shape restaurants.ownerId already uses.
+  // Cascades with the restaurant for the same reason every other feature's
+  // data does - see the note on generatedContent.restaurantId.
+  restaurantId: uuid('restaurant_id')
+    .notNull()
+    .unique()
+    .references(() => restaurants.id, { onDelete: 'cascade' }),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AssistantConversationRow = typeof assistantConversations.$inferSelect;
+export type NewAssistantConversationRow = typeof assistantConversations.$inferInsert;
+
+export const assistantMessages = pgTable('assistant_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  conversationId: uuid('conversation_id')
+    .notNull()
+    .references(() => assistantConversations.id, { onDelete: 'cascade' }),
+
+  role: messageRole('role').notNull(),
+  content: text('content').notNull(),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AssistantMessageRow = typeof assistantMessages.$inferSelect;
+export type NewAssistantMessageRow = typeof assistantMessages.$inferInsert;
