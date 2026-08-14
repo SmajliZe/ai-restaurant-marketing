@@ -19,14 +19,17 @@ from app.api.dependencies import (
     get_calendar_generator,
     get_campaign_generator,
     get_caption_generator,
+    get_marketing_assistant,
     get_menu_analyzer,
 )
 from app.domain.content_calendar.ports import CalendarGenerator
 from app.domain.content_campaign.ports import CampaignGenerator
 from app.domain.content_generation.ports import CaptionGenerator
+from app.domain.marketing_assistant.ports import MarketingAssistant
 from app.domain.menu_analysis.ports import MenuAnalyzer
 from app.infrastructure.config import Settings
 from app.main import create_app
+from app.schemas.marketing_assistant import ChatMessage
 
 GENERATED_CONTENT: Mapping[str, Any] = {
     "recognized_dish": "Margherita pizza",
@@ -238,6 +241,48 @@ class RecordingMenuAnalyzer:
         return self.result
 
 
+GENERATED_REPLY = "Post your weekend special today - it always does well on a Friday."
+
+
+class RecordingMarketingAssistant:
+    """Fake ``MarketingAssistant`` that records how it was called.
+
+    ``result`` and ``error`` stay writable so a test can change the outcome
+    after the application has already been wired to this instance.
+    """
+
+    def __init__(
+        self,
+        result: str | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = GENERATED_REPLY if result is None else result
+        self.error = error
+        self.calls: list[list[ChatMessage]] = []
+        self.contexts: list[
+            tuple[str | None, str | None, str | None, str | None, str | None, str | None]
+        ] = []
+
+    async def __call__(
+        self,
+        messages: list[ChatMessage],
+        *,
+        tone_of_voice: str | None = None,
+        cuisine_type: str | None = None,
+        country: str | None = None,
+        language: str | None = None,
+        target_audience: str | None = None,
+        activity_summary: str | None = None,
+    ) -> str:
+        self.calls.append(messages)
+        self.contexts.append(
+            (tone_of_voice, cuisine_type, country, language, target_audience, activity_summary)
+        )
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
 def make_image(
     image_format: str = "JPEG",
     size: tuple[int, int] = (32, 32),
@@ -274,11 +319,17 @@ def menu_analyzer() -> RecordingMenuAnalyzer:
 
 
 @pytest.fixture
+def marketing_assistant() -> RecordingMarketingAssistant:
+    return RecordingMarketingAssistant()
+
+
+@pytest.fixture
 def client(
     caption_generator: CaptionGenerator,
     calendar_generator: CalendarGenerator,
     campaign_generator: CampaignGenerator,
     menu_analyzer: MenuAnalyzer,
+    marketing_assistant: MarketingAssistant,
 ) -> Iterator[TestClient]:
     """Application wired to the fake generators, with settings pinned.
 
@@ -290,6 +341,7 @@ def client(
     app.dependency_overrides[get_calendar_generator] = lambda: calendar_generator
     app.dependency_overrides[get_campaign_generator] = lambda: campaign_generator
     app.dependency_overrides[get_menu_analyzer] = lambda: menu_analyzer
+    app.dependency_overrides[get_marketing_assistant] = lambda: marketing_assistant
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

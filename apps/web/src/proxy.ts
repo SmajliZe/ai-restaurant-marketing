@@ -36,5 +36,6 @@ export const config = {
     '/calendar/:path*',
     '/campaigns/:path*',
     '/menu-analysis/:path*',
+    '/assistant/:path*',
   ],
 };
