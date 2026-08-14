@@ -35,5 +35,6 @@ export const config = {
     '/history/:path*',
     '/calendar/:path*',
     '/campaigns/:path*',
+    '/menu-analysis/:path*',
   ],
 };

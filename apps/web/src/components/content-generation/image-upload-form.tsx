@@ -10,9 +10,19 @@ import {
 type ImageUploadFormProps = {
   onGenerate: (file: File) => void;
   isPending: boolean;
+  /** Defaults match the original dish-photo flow; menu analysis overrides both. */
+  label?: string;
+  submitLabel?: string;
+  pendingLabel?: string;
 };
 
-export function ImageUploadForm({ onGenerate, isPending }: ImageUploadFormProps) {
+export function ImageUploadForm({
+  onGenerate,
+  isPending,
+  label = 'Photo of the dish',
+  submitLabel = 'Generate caption',
+  pendingLabel = 'Generating…',
+}: ImageUploadFormProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -45,7 +55,7 @@ export function ImageUploadForm({ onGenerate, isPending }: ImageUploadFormProps)
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <label htmlFor={inputId} className="text-sm font-medium text-slate-200">
-          Photo of the dish
+          {label}
         </label>
         <input
           id={inputId}
@@ -72,7 +82,7 @@ export function ImageUploadForm({ onGenerate, isPending }: ImageUploadFormProps)
         disabled={file === null || isPending}
         className="bg-accent w-fit rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-950 transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {isPending ? 'Generating…' : 'Generate caption'}
+        {isPending ? pendingLabel : submitLabel}
       </button>
     </form>
   );

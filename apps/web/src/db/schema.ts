@@ -237,3 +237,29 @@ export const campaigns = pgTable('campaigns', {
 
 export type CampaignRow = typeof campaigns.$inferSelect;
 export type NewCampaignRow = typeof campaigns.$inferInsert;
+
+export const menuAnalyses = pgTable('menu_analyses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // A restaurant's analyses disappear with the restaurant, same as its
+  // history, plan, and campaigns - see the note on generatedContent.restaurantId.
+  restaurantId: uuid('restaurant_id')
+    .notNull()
+    .references(() => restaurants.id, { onDelete: 'cascade' }),
+
+  // No stored image, unlike generatedContent: the photo is read once for
+  // its text (items, prices, descriptions) and the feedback is what has
+  // lasting value, not the photo itself.
+  overview: text('overview').notNull(),
+  pricingNotes: text('pricing_notes').notNull(),
+  descriptionQuality: text('description_quality').notNull(),
+  upsellingIdeas: jsonb('upselling_ideas').$type<string[]>().notNull(),
+  crossSellingIdeas: jsonb('cross_selling_ideas').$type<string[]>().notNull(),
+  missingItems: jsonb('missing_items').$type<string[]>().notNull(),
+  improvementSuggestions: jsonb('improvement_suggestions').$type<string[]>().notNull(),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type MenuAnalysisRow = typeof menuAnalyses.$inferSelect;
+export type NewMenuAnalysisRow = typeof menuAnalyses.$inferInsert;
