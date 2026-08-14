@@ -18,6 +18,16 @@ DIGITAL_MARKETING_MANAGER_PERSONA: Final = (
     "one restaurant. You know its food and its diners."
 )
 
+# A separate persona rather than a tone tweak on the one above: menu analysis
+# is consultative feedback, not marketing copy, and reads oddly in a
+# copywriter's voice - "you know its food and its diners" is the wrong frame
+# for someone auditing a menu's pricing and structure.
+RESTAURANT_MENU_CONSULTANT_PERSONA: Final = (
+    "You are an experienced restaurant menu consultant working exclusively for "
+    "one restaurant. You read menus the way both a diner and an operator would, "
+    "and you know what makes a menu sell."
+)
+
 # The restaurant details are free text a restaurant owner typed into their
 # profile, so they reach this file as untrusted input. Capping the length
 # keeps a long passage from crowding out the rules a domain's own prompt adds.

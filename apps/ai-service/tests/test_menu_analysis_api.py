@@ -1,0 +1,238 @@
+"""HTTP-level rules: upload handling and the status code each failure maps to.
+
+Mirrors test_content_api.py's image-handling cases exactly, since both
+endpoints share the same upload validation (see app.api.upload); this file
+also covers the fields specific to menu analysis's own request context.
+"""
+
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+from app.domain.content_generation.errors import (
+    AIRefusalError,
+    AIResponseMalformedError,
+    AIServiceBusyError,
+    AITimeoutError,
+)
+from app.domain.content_generation.service import MAX_IMAGE_BYTES
+from tests.conftest import RecordingMenuAnalyzer
+
+ENDPOINT = "/menu-analysis/analyze"
+
+
+def test_returns_an_analysis_for_a_valid_upload(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    response = client.post(ENDPOINT, files={"image": ("menu.jpg", jpeg_bytes, "image/jpeg")})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["overview"].startswith("A single-page Italian dinner menu")
+    assert len(body["upselling_ideas"]) == 3
+    assert body["missing_items"] == [
+        "No non-alcoholic drink options are listed anywhere on the menu."
+    ]
+    assert len(menu_analyzer.calls) == 1
+
+
+def test_rejects_an_unsupported_content_type(
+    client: TestClient,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    response = client.post(ENDPOINT, files={"image": ("notes.txt", b"plain text", "text/plain")})
+
+    assert response.status_code == 415
+    assert "text/plain" in response.json()["detail"]
+    assert menu_analyzer.calls == []
+
+
+def test_accepts_a_content_type_carrying_parameters(
+    client: TestClient,
+    jpeg_bytes: bytes,
+) -> None:
+    response = client.post(
+        ENDPOINT,
+        files={"image": ("menu.jpg", jpeg_bytes, "image/jpeg; charset=binary")},
+    )
+
+    assert response.status_code == 200
+
+
+def test_rejects_an_upload_over_the_size_limit(
+    client: TestClient,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    oversized = b"\x00" * (MAX_IMAGE_BYTES + 1)
+
+    response = client.post(ENDPOINT, files={"image": ("big.jpg", oversized, "image/jpeg")})
+
+    assert response.status_code == 413
+    assert "larger than 10 MB" in response.json()["detail"]
+    assert menu_analyzer.calls == []
+
+
+def test_rejects_a_file_that_lies_about_its_content_type(
+    client: TestClient,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    response = client.post(ENDPOINT, files={"image": ("menu.jpg", b"not an image", "image/jpeg")})
+
+    assert response.status_code == 415
+    assert "not a readable image" in response.json()["detail"]
+    assert menu_analyzer.calls == []
+
+
+def test_rejects_a_request_without_a_file(client: TestClient) -> None:
+    response = client.post(ENDPOINT)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "image: Field required"}
+
+
+def test_reports_a_busy_provider_as_retryable(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    message = "AI service is temporarily busy, please try again in a moment."
+    menu_analyzer.error = AIServiceBusyError(message)
+
+    response = client.post(ENDPOINT, files={"image": ("menu.jpg", jpeg_bytes, "image/jpeg")})
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == message
+    assert response.headers["Retry-After"] == "30"
+
+
+def test_reports_an_unusable_provider_response_as_bad_gateway(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    menu_analyzer.result = {"overview": "Only an overview, nothing else."}
+
+    response = client.post(ENDPOINT, files={"image": ("menu.jpg", jpeg_bytes, "image/jpeg")})
+
+    assert response.status_code == 502
+    assert "missing" in response.json()["detail"]
+
+
+def test_reports_a_malformed_response_as_bad_gateway(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    menu_analyzer.error = AIResponseMalformedError(
+        "The AI service returned an unexpected response."
+    )
+
+    response = client.post(ENDPOINT, files={"image": ("menu.jpg", jpeg_bytes, "image/jpeg")})
+
+    assert response.status_code == 502
+
+
+def test_reports_a_refusal_as_bad_gateway(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    menu_analyzer.error = AIRefusalError("The AI service declined to analyze this menu.")
+
+    response = client.post(ENDPOINT, files={"image": ("menu.jpg", jpeg_bytes, "image/jpeg")})
+
+    assert response.status_code == 502
+
+
+def test_reports_a_timeout_as_gateway_timeout(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    menu_analyzer.error = AITimeoutError("The AI service took too long to respond.")
+
+    response = client.post(ENDPOINT, files={"image": ("menu.jpg", jpeg_bytes, "image/jpeg")})
+
+    assert response.status_code == 504
+
+
+def test_documents_every_status_code_it_can_return(client: TestClient) -> None:
+    responses = client.get("/openapi.json").json()["paths"][ENDPOINT]["post"]["responses"]
+
+    assert sorted(responses) == ["200", "413", "415", "422", "502", "503", "504"]
+    for code in ("413", "415", "422", "502", "503", "504"):
+        schema = responses[code]["content"]["application/json"]["schema"]
+        assert schema["$ref"].endswith("/ErrorResponse"), code
+
+
+def test_forwards_the_restaurant_context_from_the_form(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    response = client.post(
+        ENDPOINT,
+        files={"image": ("menu.jpg", jpeg_bytes, "image/jpeg")},
+        data={
+            "cuisine_type": "Neapolitan pizza",
+            "country": "Italy",
+            "language": "German",
+            "target_audience": "young professionals",
+        },
+    )
+
+    assert response.status_code == 200
+    assert menu_analyzer.contexts == [
+        ("Neapolitan pizza", "Italy", "German", "young professionals")
+    ]
+
+
+def test_the_restaurant_context_is_optional(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    response = client.post(ENDPOINT, files={"image": ("menu.jpg", jpeg_bytes, "image/jpeg")})
+
+    assert response.status_code == 200
+    assert menu_analyzer.contexts == [(None, None, None, None)]
+
+
+def test_empty_context_fields_count_as_absent(
+    client: TestClient,
+    jpeg_bytes: bytes,
+    menu_analyzer: RecordingMenuAnalyzer,
+) -> None:
+    response = client.post(
+        ENDPOINT,
+        files={"image": ("menu.jpg", jpeg_bytes, "image/jpeg")},
+        data={
+            "cuisine_type": "",
+            "country": "   ",
+            "language": "",
+            "target_audience": "   ",
+        },
+    )
+
+    assert response.status_code == 200
+    assert menu_analyzer.contexts == [(None, None, None, None)]
+
+
+def test_documents_the_context_fields_as_optional(client: TestClient) -> None:
+    spec = client.get("/openapi.json").json()
+    body = spec["paths"][ENDPOINT]["post"]["requestBody"]
+    reference = body["content"]["multipart/form-data"]["schema"]["$ref"]
+    schema = spec["components"]["schemas"][reference.rsplit("/", 1)[-1]]
+
+    assert set(schema["properties"]) == {
+        "image",
+        "cuisine_type",
+        "country",
+        "language",
+        "target_audience",
+    }
+    # No tone_of_voice field at all - see MenuAnalysisRequestContext. Only the
+    # photo is required; a caller with no profile can still call this.
+    assert schema["required"] == ["image"]

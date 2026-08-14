@@ -1,4 +1,4 @@
-"""Content generation endpoints."""
+"""Menu analysis endpoints."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 
-from app.api.dependencies import get_caption_generator
+from app.api.dependencies import get_menu_analyzer
 from app.api.upload import read_within_limit, reject_unsupported_content_type
-from app.domain.content_generation.ports import CaptionGenerator
-from app.domain.content_generation.service import generate_content
+from app.domain.menu_analysis.ports import MenuAnalyzer
+from app.domain.menu_analysis.service import analyze_menu
 from app.schemas.common import ErrorResponse
-from app.schemas.content_generation import ContentRequestContext, ContentResponse
+from app.schemas.menu_analysis import MenuAnalysisRequestContext, MenuAnalysisResponse
 
-router = APIRouter(prefix="/content", tags=["content"])
+router = APIRouter(prefix="/menu-analysis", tags=["menu-analysis"])
 
 _ERROR_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
     status.HTTP_413_CONTENT_TOO_LARGE: {
@@ -47,40 +47,35 @@ _ERROR_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
 
 
 @router.post(
-    "/generate",
-    response_model=ContentResponse,
+    "/analyze",
+    response_model=MenuAnalysisResponse,
     responses=_ERROR_RESPONSES,
-    summary="Generate Instagram, Facebook, and Story content from a photo of a dish",
+    summary="Analyze a photo of a menu and return consultative feedback",
 )
-async def generate_content_route(
+async def analyze_menu_route(
     image: Annotated[UploadFile, File(description="JPEG, PNG or WebP photo, up to 10 MB.")],
-    caption_generator: Annotated[CaptionGenerator, Depends(get_caption_generator)],
-    tone_of_voice: Annotated[str | None, Form(description="Voice to write in.")] = None,
+    menu_analyzer: Annotated[MenuAnalyzer, Depends(get_menu_analyzer)],
     cuisine_type: Annotated[str | None, Form(description="What the restaurant serves.")] = None,
     country: Annotated[str | None, Form(description="Where the restaurant is.")] = None,
-    language: Annotated[str | None, Form(description="Language to write the content in.")] = None,
-    target_audience: Annotated[
-        str | None, Form(description="Who the content should speak to.")
-    ] = None,
-) -> ContentResponse:
+    language: Annotated[str | None, Form(description="Language to write the feedback in.")] = None,
+    target_audience: Annotated[str | None, Form(description="Who the restaurant serves.")] = None,
+) -> MenuAnalysisResponse:
     reject_unsupported_content_type(image.content_type)
     image_bytes = await read_within_limit(image)
 
     # Declared as separate form fields rather than a model bound with Form():
     # FastAPI would take the model as a single field named "context", which is
     # not the flat multipart shape the web app sends.
-    context = ContentRequestContext(
-        tone_of_voice=tone_of_voice,
+    context = MenuAnalysisRequestContext(
         cuisine_type=cuisine_type,
         country=country,
         language=language,
         target_audience=target_audience,
     )
 
-    return await generate_content(
+    return await analyze_menu(
         image_bytes,
-        caption_generator=caption_generator,
-        tone_of_voice=context.tone_of_voice,
+        menu_analyzer=menu_analyzer,
         cuisine_type=context.cuisine_type,
         country=context.country,
         language=context.language,

@@ -19,10 +19,12 @@ from app.api.dependencies import (
     get_calendar_generator,
     get_campaign_generator,
     get_caption_generator,
+    get_menu_analyzer,
 )
 from app.domain.content_calendar.ports import CalendarGenerator
 from app.domain.content_campaign.ports import CampaignGenerator
 from app.domain.content_generation.ports import CaptionGenerator
+from app.domain.menu_analysis.ports import MenuAnalyzer
 from app.infrastructure.config import Settings
 from app.main import create_app
 
@@ -179,6 +181,63 @@ class RecordingCampaignGenerator:
         return self.result
 
 
+GENERATED_MENU_ANALYSIS: Mapping[str, Any] = {
+    "overview": "A single-page Italian dinner menu, organised into starters, pizzas, and pastas.",
+    "pricing_notes": "Pizzas range from 9 to 14 EUR with no clear pattern by ingredient cost.",
+    "description_quality": "Starter descriptions are appetising; the dessert list has none.",
+    "upselling_ideas": [
+        "Offer the Quattro Formaggi as an upgrade wherever the Margherita appears.",
+        "Add a burrata add-on note under the pasta section.",
+        "Suggest the larger pizza size next to the standard size.",
+    ],
+    "cross_selling_ideas": [
+        "Pair the Bruschetta starter with the house Chianti by the glass.",
+        "Suggest the Tiramisu alongside the espresso listed in drinks.",
+        "Pair the Quattro Formaggi with the honey drizzle add-on.",
+    ],
+    "missing_items": ["No non-alcoholic drink options are listed anywhere on the menu."],
+    "improvement_suggestions": [
+        "Add short descriptions to the dessert section.",
+        "Re-price the pizzas so cost differences between toppings are reflected.",
+        "Group the two pasta sub-sections under one clearer heading.",
+    ],
+}
+
+
+class RecordingMenuAnalyzer:
+    """Fake ``MenuAnalyzer`` that records how it was called.
+
+    ``result`` and ``error`` stay writable so a test can change the outcome
+    after the application has already been wired to this instance.
+    """
+
+    def __init__(
+        self,
+        result: Mapping[str, Any] | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = GENERATED_MENU_ANALYSIS if result is None else result
+        self.error = error
+        self.calls: list[tuple[bytes, str]] = []
+        self.contexts: list[tuple[str | None, str | None, str | None, str | None]] = []
+
+    async def __call__(
+        self,
+        image_bytes: bytes,
+        *,
+        mime_type: str,
+        cuisine_type: str | None = None,
+        country: str | None = None,
+        language: str | None = None,
+        target_audience: str | None = None,
+    ) -> Mapping[str, Any]:
+        self.calls.append((image_bytes, mime_type))
+        self.contexts.append((cuisine_type, country, language, target_audience))
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
 def make_image(
     image_format: str = "JPEG",
     size: tuple[int, int] = (32, 32),
@@ -210,10 +269,16 @@ def campaign_generator() -> RecordingCampaignGenerator:
 
 
 @pytest.fixture
+def menu_analyzer() -> RecordingMenuAnalyzer:
+    return RecordingMenuAnalyzer()
+
+
+@pytest.fixture
 def client(
     caption_generator: CaptionGenerator,
     calendar_generator: CalendarGenerator,
     campaign_generator: CampaignGenerator,
+    menu_analyzer: MenuAnalyzer,
 ) -> Iterator[TestClient]:
     """Application wired to the fake generators, with settings pinned.
 
@@ -224,6 +289,7 @@ def client(
     app.dependency_overrides[get_caption_generator] = lambda: caption_generator
     app.dependency_overrides[get_calendar_generator] = lambda: calendar_generator
     app.dependency_overrides[get_campaign_generator] = lambda: campaign_generator
+    app.dependency_overrides[get_menu_analyzer] = lambda: menu_analyzer
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

@@ -9,7 +9,13 @@ from __future__ import annotations
 from app.domain.content_calendar.ports import CalendarGenerator
 from app.domain.content_campaign.ports import CampaignGenerator
 from app.domain.content_generation.ports import CaptionGenerator
-from app.infrastructure import calendar_client, campaign_client, vision_client
+from app.domain.menu_analysis.ports import MenuAnalyzer
+from app.infrastructure import (
+    calendar_client,
+    campaign_client,
+    menu_analysis_client,
+    vision_client,
+)
 
 
 def get_caption_generator() -> CaptionGenerator:
@@ -22,3 +28,7 @@ def get_calendar_generator() -> CalendarGenerator:
 
 def get_campaign_generator() -> CampaignGenerator:
     return campaign_client.generate_campaign
+
+
+def get_menu_analyzer() -> MenuAnalyzer:
+    return menu_analysis_client.analyze_menu
