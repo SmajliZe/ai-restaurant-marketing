@@ -49,5 +49,15 @@ function truncate(text: string, maxLength = 80): string {
 }
 
 function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+  // A fixed timeZone, rather than the runtime's own: without one, this
+  // renders in the server's local zone during SSR and the browser's local
+  // zone during hydration, and whenever those differ React discards the
+  // server-rendered tree as a hydration mismatch. No per-restaurant
+  // timezone is tracked yet, so UTC is the deterministic choice that keeps
+  // server and client in agreement.
+  return new Intl.DateTimeFormat('en', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'UTC',
+  }).format(date);
 }
