@@ -34,5 +34,6 @@ export const config = {
     '/dashboard/:path*',
     '/history/:path*',
     '/calendar/:path*',
+    '/campaigns/:path*',
   ],
 };

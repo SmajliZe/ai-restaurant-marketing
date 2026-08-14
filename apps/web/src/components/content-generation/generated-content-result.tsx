@@ -135,7 +135,12 @@ export function ContentPanel({
   );
 }
 
-function TextWithHashtagsPanel({ text, hashtags }: { text: string; hashtags: string[] }) {
+/**
+ * Exported so other modules with the same "text plus hashtags" shape - the
+ * campaign caption, in particular - can show it without a second copy of
+ * this markup.
+ */
+export function TextWithHashtagsPanel({ text, hashtags }: { text: string; hashtags: string[] }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
@@ -171,7 +176,12 @@ const STICKER_LABELS: Record<StickerType, string> = {
   countdown: 'Countdown',
 };
 
-function StoryPanel({ story }: { story: StoryContent }) {
+/**
+ * Exported for the same reason as `TextWithHashtagsPanel`: a campaign's
+ * story is the same `StoryContent` shape a generation's is, so it is shown
+ * with this rather than a rebuilt copy of it.
+ */
+export function StoryPanel({ story }: { story: StoryContent }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
@@ -263,7 +273,8 @@ function Placeholder({ title, message }: { title: string; message: string }) {
   );
 }
 
-function PanelHeading({ children }: { children: React.ReactNode }) {
+/** Exported alongside the panels above for the same reason. */
+export function PanelHeading({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="text-xs font-medium tracking-widest text-slate-500 uppercase">{children}</h2>
   );
