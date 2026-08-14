@@ -15,8 +15,13 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app.api.dependencies import get_calendar_generator, get_caption_generator
+from app.api.dependencies import (
+    get_calendar_generator,
+    get_campaign_generator,
+    get_caption_generator,
+)
 from app.domain.content_calendar.ports import CalendarGenerator
+from app.domain.content_campaign.ports import CampaignGenerator
 from app.domain.content_generation.ports import CaptionGenerator
 from app.infrastructure.config import Settings
 from app.main import create_app
@@ -123,6 +128,57 @@ class RecordingCalendarGenerator:
         return self.result
 
 
+GENERATED_CAMPAIGN: Mapping[str, Any] = {
+    "name": "Aperitivo Hour",
+    "description": "A relaxed after-work window built around small plates and house cocktails.",
+    "offer": "A complimentary small plate with any drink order",
+    "caption": "The golden hour just got better. Pull up a stool and let us take care of you.",
+    "hashtags": ["aperitivo", "happyhour", "afterwork", "eatlocal", "cocktailhour"],
+    "story": {
+        "text": "Aperitivo hour is calling",
+        "cta": "Swipe up to reserve a stool",
+        "sticker_type": "countdown",
+        "sticker_prompt": "Doors open in",
+    },
+    "cta": "Reserve your spot for aperitivo hour",
+    "duration_suggestion": "Every weekday, 5-7pm",
+}
+
+
+class RecordingCampaignGenerator:
+    """Fake ``CampaignGenerator`` that records how it was called.
+
+    ``result`` and ``error`` stay writable so a test can change the outcome
+    after the application has already been wired to this instance.
+    """
+
+    def __init__(
+        self,
+        result: Mapping[str, Any] | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = GENERATED_CAMPAIGN if result is None else result
+        self.error = error
+        self.occasions: list[str] = []
+        self.contexts: list[RestaurantContextArgs] = []
+
+    async def __call__(
+        self,
+        occasion: str,
+        *,
+        tone_of_voice: str | None = None,
+        cuisine_type: str | None = None,
+        country: str | None = None,
+        language: str | None = None,
+        target_audience: str | None = None,
+    ) -> Mapping[str, Any]:
+        self.occasions.append(occasion)
+        self.contexts.append((tone_of_voice, cuisine_type, country, language, target_audience))
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
 def make_image(
     image_format: str = "JPEG",
     size: tuple[int, int] = (32, 32),
@@ -149,9 +205,15 @@ def calendar_generator() -> RecordingCalendarGenerator:
 
 
 @pytest.fixture
+def campaign_generator() -> RecordingCampaignGenerator:
+    return RecordingCampaignGenerator()
+
+
+@pytest.fixture
 def client(
     caption_generator: CaptionGenerator,
     calendar_generator: CalendarGenerator,
+    campaign_generator: CampaignGenerator,
 ) -> Iterator[TestClient]:
     """Application wired to the fake generators, with settings pinned.
 
@@ -161,6 +223,7 @@ def client(
     app = create_app(Settings(environment="test"))
     app.dependency_overrides[get_caption_generator] = lambda: caption_generator
     app.dependency_overrides[get_calendar_generator] = lambda: calendar_generator
+    app.dependency_overrides[get_campaign_generator] = lambda: campaign_generator
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

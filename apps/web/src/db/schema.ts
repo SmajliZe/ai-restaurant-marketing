@@ -191,3 +191,49 @@ export const calendarEntries = pgTable(
 
 export type CalendarEntryRow = typeof calendarEntries.$inferSelect;
 export type NewCalendarEntryRow = typeof calendarEntries.$inferInsert;
+
+// Mirrors CampaignStatus in the content-campaign module - the two never
+// drift apart because both spell out the same three values by hand.
+export const CAMPAIGN_STATUS_VALUES = ['draft', 'active', 'completed'] as const;
+
+export type CampaignStatusValue = (typeof CAMPAIGN_STATUS_VALUES)[number];
+
+export const campaignStatus = pgEnum('campaign_status', CAMPAIGN_STATUS_VALUES);
+
+export const campaigns = pgTable('campaigns', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // A restaurant's campaigns disappear with the restaurant, same as its
+  // history and its plan - see the note on generatedContent.restaurantId.
+  restaurantId: uuid('restaurant_id')
+    .notNull()
+    .references(() => restaurants.id, { onDelete: 'cascade' }),
+
+  occasion: text('occasion').notNull(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  // The shape of an offer, e.g. "a complimentary starter with any main
+  // course" - never a specific price, per the AI service's own rule.
+  offer: text('offer').notNull(),
+  caption: text('caption').notNull(),
+  hashtags: jsonb('hashtags').$type<string[]>().notNull(),
+
+  storyText: text('story_text').notNull(),
+  storyCta: text('story_cta').notNull(),
+  storyStickerType: stickerType('story_sticker_type').notNull(),
+  storyStickerPrompt: text('story_sticker_prompt').notNull(),
+
+  cta: text('cta').notNull(),
+  durationSuggestion: text('duration_suggestion').notNull(),
+
+  status: campaignStatus('status').notNull().default('draft'),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export type CampaignRow = typeof campaigns.$inferSelect;
+export type NewCampaignRow = typeof campaigns.$inferInsert;

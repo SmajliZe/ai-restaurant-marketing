@@ -7,8 +7,9 @@ fake through ``app.dependency_overrides`` instead of patching module globals.
 from __future__ import annotations
 
 from app.domain.content_calendar.ports import CalendarGenerator
+from app.domain.content_campaign.ports import CampaignGenerator
 from app.domain.content_generation.ports import CaptionGenerator
-from app.infrastructure import calendar_client, vision_client
+from app.infrastructure import calendar_client, campaign_client, vision_client
 
 
 def get_caption_generator() -> CaptionGenerator:
@@ -17,3 +18,7 @@ def get_caption_generator() -> CaptionGenerator:
 
 def get_calendar_generator() -> CalendarGenerator:
     return calendar_client.generate_weekly_calendar
+
+
+def get_campaign_generator() -> CampaignGenerator:
+    return campaign_client.generate_campaign
