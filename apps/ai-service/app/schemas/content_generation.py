@@ -50,7 +50,12 @@ class ContentRequestContext(BaseModel):
 class InstagramContent(BaseModel):
     caption: str = Field(description="Instagram caption, one to three sentences.")
     hashtags: list[str] = Field(
-        description='Hashtags without the leading "#", ready to be joined by the client.',
+        min_length=3,
+        max_length=5,
+        description=(
+            'Hashtags without the leading "#", ready to be joined by the client. Precise and '
+            "niche - tied to the dish, cuisine, or location - never generic."
+        ),
     )
 
 

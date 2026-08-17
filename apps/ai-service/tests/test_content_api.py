@@ -29,7 +29,7 @@ def test_returns_content_for_a_valid_upload(
     assert body["confidence"] == 0.92
     assert body["instagram"] == {
         "caption": "Blistered crust and mozzarella that pulls for days.",
-        "hashtags": ["margherita", "pizzanight"],
+        "hashtags": ["margherita", "pizzanight", "eatlocal", "doughlife"],
     }
     assert body["facebook"]["hashtags"] == ["woodfiredpizza"]
     assert body["story"]["sticker_type"] == "poll"
