@@ -38,9 +38,10 @@ GENERATED_CONTENT: Mapping[str, Any] = {
     "confidence": 0.92,
     "instagram": {
         "caption": "Blistered crust and mozzarella that pulls for days.",
-        # Includes a "#" the model was asked not to send, so the tests cover
-        # the normalisation the service performs.
-        "hashtags": ["margherita", "#pizzanight", " ", "margherita"],
+        # Includes a "#" the model was asked not to send and a duplicate, so
+        # the tests cover the normalisation the service performs, while
+        # still leaving enough distinct tags to satisfy the 3-5 range.
+        "hashtags": ["margherita", "#pizzanight", " ", "eatlocal", "margherita", "doughlife"],
     },
     "facebook": {
         "post": "There's something about a pizza straight out of the oven.",

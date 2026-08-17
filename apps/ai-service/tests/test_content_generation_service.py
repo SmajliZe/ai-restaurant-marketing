@@ -37,7 +37,7 @@ async def test_normalises_hashtags_returned_by_the_model(
     result = await generate_content(jpeg_bytes, caption_generator=caption_generator)
 
     # The "#" is stripped, the blank entry dropped, and the duplicate collapsed.
-    assert result.instagram.hashtags == ["margherita", "pizzanight"]
+    assert result.instagram.hashtags == ["margherita", "pizzanight", "eatlocal", "doughlife"]
     assert result.facebook.hashtags == ["woodfiredpizza"]
 
 
@@ -134,6 +134,31 @@ async def test_a_missing_top_level_key_raises_a_malformed_error_not_a_key_error(
 async def test_a_missing_nested_key_raises_a_malformed_error(jpeg_bytes: bytes) -> None:
     incomplete = {**GENERATED_CONTENT, "instagram": {"caption": "No hashtags in here."}}
     generator = RecordingCaptionGenerator(result=incomplete)
+
+    with pytest.raises(AIResponseMalformedError, match="unexpected response"):
+        await generate_content(jpeg_bytes, caption_generator=generator)
+
+
+async def test_rejects_a_response_with_too_few_instagram_hashtags(jpeg_bytes: bytes) -> None:
+    too_few = {
+        **GENERATED_CONTENT,
+        "instagram": {**GENERATED_CONTENT["instagram"], "hashtags": ["one", "two"]},
+    }
+    generator = RecordingCaptionGenerator(result=too_few)
+
+    with pytest.raises(AIResponseMalformedError, match="unexpected response"):
+        await generate_content(jpeg_bytes, caption_generator=generator)
+
+
+async def test_rejects_a_response_with_too_many_instagram_hashtags(jpeg_bytes: bytes) -> None:
+    too_many = {
+        **GENERATED_CONTENT,
+        "instagram": {
+            **GENERATED_CONTENT["instagram"],
+            "hashtags": ["one", "two", "three", "four", "five", "six"],
+        },
+    }
+    generator = RecordingCaptionGenerator(result=too_many)
 
     with pytest.raises(AIResponseMalformedError, match="unexpected response"):
         await generate_content(jpeg_bytes, caption_generator=generator)

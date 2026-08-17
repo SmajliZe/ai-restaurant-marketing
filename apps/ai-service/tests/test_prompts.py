@@ -34,6 +34,12 @@ def test_keeps_the_standing_rules_alongside_the_context() -> None:
     assert "1 to 3 sentences" in prompt
 
 
+def test_instructs_3_to_5_precise_niche_instagram_hashtags() -> None:
+    assert "Return 3 to 5 hashtags" in CONTENT_SYSTEM_PROMPT
+    assert "precise and niche" in CONTENT_SYSTEM_PROMPT
+    assert '"foodie" or "instagood"' in CONTENT_SYSTEM_PROMPT
+
+
 @pytest.mark.parametrize(
     ("kwargs", "expected", "unexpected"),
     [

@@ -29,8 +29,9 @@ Instagram:
 - Write in the first person plural, as the restaurant speaking.
 - Use emojis where they add warmth, not on every line.
 - End with a clear call to action.
-- Return 5 to 10 hashtags, lowercase, no spaces or punctuation inside a
-  hashtag.
+- Return 3 to 5 hashtags, lowercase, no spaces or punctuation inside a
+  hashtag. Make them precise and niche - tied to this specific dish,
+  cuisine, or location - never generic tags like "foodie" or "instagood".
 
 Facebook:
 - 3 to 5 sentences, in a more conversational, storytelling tone than
