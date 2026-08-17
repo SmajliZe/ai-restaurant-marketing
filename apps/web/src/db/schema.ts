@@ -305,3 +305,31 @@ export const assistantMessages = pgTable('assistant_messages', {
 
 export type AssistantMessageRow = typeof assistantMessages.$inferSelect;
 export type NewAssistantMessageRow = typeof assistantMessages.$inferInsert;
+
+export const styleAnalyses = pgTable('style_analyses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // A restaurant's analyses disappear with the restaurant, same as its
+  // history, plan, campaigns, and menu analyses - see the note on
+  // generatedContent.restaurantId.
+  restaurantId: uuid('restaurant_id')
+    .notNull()
+    .references(() => restaurants.id, { onDelete: 'cascade' }),
+
+  // How many reference profiles actually contributed an image, so the list
+  // view can say "Based on 2 reference profiles" without re-deriving it -
+  // no stored images, unlike generatedContent, the same reasoning
+  // menuAnalyses uses: the screenshots are read once for their patterns,
+  // and the resulting plan is what has lasting value.
+  profileCount: integer('profile_count').notNull(),
+
+  visualStyleNotes: text('visual_style_notes').notNull(),
+  contentStyleNotes: text('content_style_notes').notNull(),
+  contentPillars: jsonb('content_pillars').$type<string[]>().notNull(),
+  recommendations: jsonb('recommendations').$type<string[]>().notNull(),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type StyleAnalysisRow = typeof styleAnalyses.$inferSelect;
+export type NewStyleAnalysisRow = typeof styleAnalyses.$inferInsert;

@@ -11,11 +11,13 @@ from app.domain.content_campaign.ports import CampaignGenerator
 from app.domain.content_generation.ports import CaptionGenerator
 from app.domain.marketing_assistant.ports import MarketingAssistant
 from app.domain.menu_analysis.ports import MenuAnalyzer
+from app.domain.style_analysis.ports import StyleAnalyzer
 from app.infrastructure import (
     calendar_client,
     campaign_client,
     marketing_assistant_client,
     menu_analysis_client,
+    style_analysis_client,
     vision_client,
 )
 
@@ -38,3 +40,7 @@ def get_menu_analyzer() -> MenuAnalyzer:
 
 def get_marketing_assistant() -> MarketingAssistant:
     return marketing_assistant_client.chat
+
+
+def get_style_analyzer() -> StyleAnalyzer:
+    return style_analysis_client.analyze_style
