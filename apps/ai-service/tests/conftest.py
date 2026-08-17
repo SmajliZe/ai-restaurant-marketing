@@ -21,12 +21,14 @@ from app.api.dependencies import (
     get_caption_generator,
     get_marketing_assistant,
     get_menu_analyzer,
+    get_style_analyzer,
 )
 from app.domain.content_calendar.ports import CalendarGenerator
 from app.domain.content_campaign.ports import CampaignGenerator
 from app.domain.content_generation.ports import CaptionGenerator
 from app.domain.marketing_assistant.ports import MarketingAssistant
 from app.domain.menu_analysis.ports import MenuAnalyzer
+from app.domain.style_analysis.ports import ReferenceProfileImages, StyleAnalyzer
 from app.infrastructure.config import Settings
 from app.main import create_app
 from app.schemas.marketing_assistant import ChatMessage
@@ -283,6 +285,58 @@ class RecordingMarketingAssistant:
         return self.result
 
 
+GENERATED_STYLE_ANALYSIS: Mapping[str, Any] = {
+    "visual_style_notes": (
+        "References lean on warm, low-angle lighting and a terracotta-and-cream palette."
+    ),
+    "content_style_notes": "Captions across the references are short and end in a question.",
+    "content_pillars": [
+        "Behind the wood-fired oven",
+        "Ingredient close-ups",
+        "Weekend specials",
+    ],
+    "recommendations": [
+        "Shoot every dish at a low angle with warm, directional lighting.",
+        "Keep captions to one or two sentences ending in a question.",
+        "Build a consistent terracotta-and-cream palette across the feed grid.",
+    ],
+}
+
+
+class RecordingStyleAnalyzer:
+    """Fake ``StyleAnalyzer`` that records how it was called.
+
+    ``result`` and ``error`` stay writable so a test can change the outcome
+    after the application has already been wired to this instance.
+    """
+
+    def __init__(
+        self,
+        result: Mapping[str, Any] | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = GENERATED_STYLE_ANALYSIS if result is None else result
+        self.error = error
+        self.calls: list[list[ReferenceProfileImages]] = []
+        self.contexts: list[tuple[str | None, str | None, str | None, str | None, str | None]] = []
+
+    async def __call__(
+        self,
+        profiles: list[ReferenceProfileImages],
+        *,
+        cuisine_type: str | None = None,
+        tone_of_voice: str | None = None,
+        country: str | None = None,
+        language: str | None = None,
+        target_audience: str | None = None,
+    ) -> Mapping[str, Any]:
+        self.calls.append(profiles)
+        self.contexts.append((cuisine_type, tone_of_voice, country, language, target_audience))
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
 def make_image(
     image_format: str = "JPEG",
     size: tuple[int, int] = (32, 32),
@@ -324,12 +378,18 @@ def marketing_assistant() -> RecordingMarketingAssistant:
 
 
 @pytest.fixture
+def style_analyzer() -> RecordingStyleAnalyzer:
+    return RecordingStyleAnalyzer()
+
+
+@pytest.fixture
 def client(
     caption_generator: CaptionGenerator,
     calendar_generator: CalendarGenerator,
     campaign_generator: CampaignGenerator,
     menu_analyzer: MenuAnalyzer,
     marketing_assistant: MarketingAssistant,
+    style_analyzer: StyleAnalyzer,
 ) -> Iterator[TestClient]:
     """Application wired to the fake generators, with settings pinned.
 
@@ -342,6 +402,7 @@ def client(
     app.dependency_overrides[get_campaign_generator] = lambda: campaign_generator
     app.dependency_overrides[get_menu_analyzer] = lambda: menu_analyzer
     app.dependency_overrides[get_marketing_assistant] = lambda: marketing_assistant
+    app.dependency_overrides[get_style_analyzer] = lambda: style_analyzer
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
