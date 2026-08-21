@@ -38,5 +38,6 @@ export const config = {
     '/menu-analysis/:path*',
     '/assistant/:path*',
     '/style-analysis/:path*',
+    '/analytics/:path*',
   ],
 };
