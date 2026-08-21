@@ -20,7 +20,7 @@ export function TopBar({ restaurantName, signOutAction, onMenuClick }: TopBarPro
         >
           <MenuIcon />
         </button>
-        <span className="text-sm font-medium text-slate-200 sm:text-base">{restaurantName}</span>
+        <span className="text-base font-semibold text-slate-200 sm:text-lg">{restaurantName}</span>
       </div>
 
       <UserMenu signOutAction={signOutAction} />

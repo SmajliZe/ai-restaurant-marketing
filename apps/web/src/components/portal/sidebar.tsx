@@ -44,7 +44,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         }`}
       >
         <div className="flex items-center justify-between px-5 py-5">
-          <span className="flex items-center gap-2 text-base font-semibold tracking-tight text-slate-100">
+          <span className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-100">
             <span className="bg-accent h-2 w-2 rounded-full" aria-hidden="true" />
             Plateful
           </span>
@@ -114,7 +114,7 @@ function NavItem({
       href={href}
       onClick={onNavigate}
       aria-current={isActive ? 'page' : undefined}
-      className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+      className={`rounded-lg px-3 py-2.5 text-base leading-normal font-medium transition-colors ${
         isActive
           ? 'bg-surface-muted text-slate-100'
           : 'text-slate-400 hover:bg-surface-muted hover:text-slate-100'

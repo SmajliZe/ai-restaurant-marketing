@@ -11,3 +11,17 @@
 :root {
   color-scheme: dark;
 }
+
+/* Shared portal page-header type scale, so every (portal)/*\/page.tsx reads
+   consistently from one place instead of repeating literal Tailwind classes. */
+@utility page-eyebrow {
+  @apply text-accent text-base font-medium tracking-widest uppercase;
+}
+
+@utility page-heading {
+  @apply text-4xl font-semibold tracking-tight text-balance;
+}
+
+@utility empty-state-text {
+  @apply text-base text-slate-400;
+}
