@@ -26,10 +26,8 @@ export default async function MenuAnalysisPage() {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-10 px-6 py-16">
       <header className="flex flex-col gap-3">
-        <p className="text-accent text-sm font-medium tracking-widest uppercase">
-          Menu analysis
-        </p>
-        <h1 className="text-3xl font-semibold text-balance">Get feedback on your menu</h1>
+        <p className="page-eyebrow">Menu analysis</p>
+        <h1 className="page-heading">Get feedback on your menu</h1>
         <p className="max-w-2xl text-slate-400">
           Upload a photo of your menu for consultative feedback grounded in the actual items,
           prices, and descriptions on it - pricing notes, upselling and cross-selling ideas, gaps,

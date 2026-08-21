@@ -31,14 +31,14 @@ export default async function HistoryPage({
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-10 px-6 py-16">
       <header className="flex flex-col gap-3">
-        <p className="text-accent text-sm font-medium tracking-widest uppercase">History</p>
-        <h1 className="text-3xl font-semibold text-balance">Everything you have generated</h1>
+        <p className="page-eyebrow">History</p>
+        <h1 className="page-heading">Everything you have generated</h1>
       </header>
 
       {result === null ? (
         <ProfileRequired />
       ) : result.entries.length === 0 ? (
-        <p className="text-sm text-slate-400">
+        <p className="empty-state-text">
           {page === 1 ? 'Nothing generated yet.' : "There's nothing on this page."}
         </p>
       ) : (

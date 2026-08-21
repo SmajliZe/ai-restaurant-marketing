@@ -26,10 +26,8 @@ export default async function CalendarPage() {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-16">
       <header className="flex flex-col gap-3">
-        <p className="text-accent text-sm font-medium tracking-widest uppercase">
-          Content calendar
-        </p>
-        <h1 className="text-3xl font-semibold text-balance">This week&apos;s plan</h1>
+        <p className="page-eyebrow">Content calendar</p>
+        <h1 className="page-heading">This week&apos;s plan</h1>
         <p className="max-w-2xl text-slate-400">
           A theme and content angle for each day, Monday through Sunday - planning guidance to act
           on, not finished posts.

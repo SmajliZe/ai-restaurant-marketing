@@ -80,8 +80,8 @@ export default async function DashboardPage({
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-16">
       <header className="flex flex-col gap-3">
-        <p className="text-accent text-sm font-medium tracking-widest uppercase">Dashboard</p>
-        <h1 className="text-3xl font-semibold text-balance">Your content at a glance</h1>
+        <p className="page-eyebrow">Dashboard</p>
+        <h1 className="page-heading">Your content at a glance</h1>
       </header>
 
       {saved === '1' && <SavedBanner />}
@@ -112,7 +112,7 @@ export default async function DashboardPage({
             </h2>
 
             {activity.length === 0 ? (
-              <p className="text-sm text-slate-400">Nothing generated yet.</p>
+              <p className="empty-state-text">Nothing generated yet.</p>
             ) : (
               <ul className="divide-y divide-slate-800">
                 {activity.map((item) => (

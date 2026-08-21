@@ -26,8 +26,8 @@ export default async function CampaignsPage() {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-10 px-6 py-16">
       <header className="flex flex-col gap-3">
-        <p className="text-accent text-sm font-medium tracking-widest uppercase">Campaigns</p>
-        <h1 className="text-3xl font-semibold text-balance">Build a campaign for any occasion</h1>
+        <p className="page-eyebrow">Campaigns</p>
+        <h1 className="page-heading">Build a campaign for any occasion</h1>
         <p className="max-w-2xl text-slate-400">
           Pick an occasion and get a complete campaign package - name, offer, caption, hashtags,
           story and call to action - built around one cohesive idea.
