@@ -17,7 +17,7 @@ export default async function LoginPage({
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold">Sign in</h1>
         <p className="text-sm text-slate-400">
-          Manage your restaurant profile and generated posts.
+          Manage your Account Info and generated posts.
         </p>
       </header>
 

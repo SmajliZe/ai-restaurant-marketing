@@ -24,12 +24,9 @@ export function ProfileForm({ profile }: { profile: RestaurantProfile | null }) 
         isPending={isPending}
       />
 
-      {/* Outside the remounted subtree so the confirmation survives it. */}
-      {state.status === 'saved' && (
-        <p role="status" className="text-sm text-emerald-300">
-          Profile saved.
-        </p>
-      )}
+      {/* Outside the remounted subtree so it survives a remount on retry.
+          There is no 'saved' branch here: a successful save redirects to the
+          dashboard instead of returning a state for this form to render. */}
       {state.status === 'error' && (
         <p role="alert" className="text-sm text-rose-400">
           {state.message}

@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { isDuplicateEmailError, userRepository } from '@/modules/auth/repository';
 import { registerUser } from '@/modules/auth/service';
 import type { RegisterResult } from '@/modules/auth/types';
-import { signIn } from '~/auth';
+import { signIn, signOut } from '~/auth';
 
 export type RegisterActionState = { message: string } | null;
 export type LoginActionState = { message: string } | null;
@@ -65,4 +65,16 @@ export async function loginAction(
   }
 
   return null;
+}
+
+/**
+ * Ends the signed-in session and returns to the sign-in page.
+ *
+ * A thin wrapper around Auth.js's own `signOut`, bound directly to the user
+ * menu's form action - there is no session logic of this app's own to test
+ * here, the same reason `loginAction`'s call into `signIn` has no dedicated
+ * test either.
+ */
+export async function signOutAction(): Promise<void> {
+  await signOut({ redirectTo: '/login' });
 }
