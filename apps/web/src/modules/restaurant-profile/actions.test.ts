@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RestaurantProfile } from './types';
 
-const { authMock, repositoryMock } = vi.hoisted(() => ({
+const { authMock, redirectMock, repositoryMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
+  redirectMock: vi.fn(),
   repositoryMock: {
     findByOwnerId: vi.fn(),
     upsertForOwner: vi.fn(),
@@ -12,6 +13,9 @@ const { authMock, repositoryMock } = vi.hoisted(() => ({
 
 vi.mock('~/auth', () => ({ auth: authMock }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+// The real `redirect` signals by throwing; mocked to a no-op so a successful
+// save can be asserted on directly, the same way registerAction's test would.
+vi.mock('next/navigation', () => ({ redirect: redirectMock }));
 vi.mock('@/modules/restaurant-profile/repository', () => ({
   restaurantRepository: repositoryMock,
 }));
@@ -39,11 +43,16 @@ beforeEach(() => {
 });
 
 describe('upsertProfileAction', () => {
-  it('saves under the account in the session', async () => {
+  it('saves under the account in the session, then redirects to the dashboard', async () => {
     authMock.mockResolvedValue({ user: { id: SESSION_OWNER } });
 
-    expect(await upsertProfileAction(IDLE, validForm())).toEqual({ status: 'saved' });
+    await upsertProfileAction(IDLE, validForm());
+
     expect(repositoryMock.upsertForOwner).toHaveBeenCalledWith(SESSION_OWNER, expect.anything());
+    // The redirect carries the confirmation signal, the same convention
+    // registerAction uses (`/login?registered=1`) rather than a status the
+    // form would have to render inline.
+    expect(redirectMock).toHaveBeenCalledWith('/dashboard?saved=1');
   });
 
   it('ignores an owner id smuggled in through the form', async () => {
@@ -71,9 +80,10 @@ describe('upsertProfileAction', () => {
       message: 'Your session has expired. Sign in again to save your profile.',
     });
     expect(repositoryMock.upsertForOwner).not.toHaveBeenCalled();
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it('reports a validation failure without writing', async () => {
+  it('reports a validation failure without writing or redirecting', async () => {
     authMock.mockResolvedValue({ user: { id: SESSION_OWNER } });
     const incomplete = validForm();
     incomplete.set('name', '');
@@ -82,6 +92,7 @@ describe('upsertProfileAction', () => {
 
     expect(result.status).toBe('error');
     expect(repositoryMock.upsertForOwner).not.toHaveBeenCalled();
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 });
 

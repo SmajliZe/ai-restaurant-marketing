@@ -11,7 +11,7 @@ export default function RegisterPage() {
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold">Create an account</h1>
         <p className="text-sm text-slate-400">
-          One account per restaurant. You can fill in the profile afterwards.
+          One account per restaurant. You can fill in your Account Info afterwards.
         </p>
       </header>
 

@@ -96,16 +96,16 @@ function Pagination({ page, pageSize, total }: { page: number; pageSize: number;
 function ProfileRequired() {
   return (
     <section className="flex flex-col items-start gap-4 rounded-lg border border-amber-900/60 bg-amber-950/30 p-6">
-      <h2 className="text-lg font-medium text-amber-100">Complete your restaurant profile first</h2>
+      <h2 className="text-lg font-medium text-amber-100">Complete your Account Info first</h2>
       <p className="max-w-xl text-sm text-amber-200/80">
-        There is nothing to show here until you have a restaurant profile and have generated some
-        content.
+        There is nothing to show here until you have completed your Account Info and generated
+        some content.
       </p>
       <Link
         href="/profile"
         className="bg-accent rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-950"
       >
-        Go to your profile
+        Go to Account Info
       </Link>
     </section>
   );

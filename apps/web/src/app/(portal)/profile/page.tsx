@@ -5,7 +5,7 @@ import { ProfileForm } from '@/components/restaurant-profile/profile-form';
 import { getProfileForCurrentUser } from '@/modules/restaurant-profile/actions';
 import { auth } from '~/auth';
 
-export const metadata: Metadata = { title: 'Restaurant profile' };
+export const metadata: Metadata = { title: 'Account Info' };
 
 export default async function ProfilePage() {
   // The proxy already redirects an anonymous visitor, but it only guards the
