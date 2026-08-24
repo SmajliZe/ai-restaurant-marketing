@@ -17,6 +17,7 @@ const CONTENT_LINKS: NavLink[] = [
 const INSIGHTS_LINKS: NavLink[] = [
   { href: '/menu-analysis', label: 'Menu Analysis' },
   { href: '/style-analysis', label: 'Style Analysis' },
+  { href: '/analytics', label: 'Analytics' },
 ];
 
 type SidebarProps = {
